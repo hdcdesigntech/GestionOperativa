@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <!-- Meta tags cruciales para comportamiento de App Nativa en Android -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1e3a8a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Inventario Postes</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        
+        /* Optimizaciones táctiles para Android */
+        * { -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; overscroll-behavior-y: none; }
+        
+        /* Ocultar barra de scroll para un deslizamiento más nativo */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .color-azul { background-color: #1e3a8a; color: white; }
+        .color-naranja { background-color: #f97316; color: white; }
+        .color-aluminio { background-color: #94a3b8; color: #0f172a; }
+        .color-negro { background-color: #111827; color: white; }
+
+        .text-dorado { color: #D4AF37; }
+        .border-dorado { border-color: #D4AF37; }
+        
+        /* Pestañas adaptadas para móvil (mitad y mitad) */
+        .tab-activa { border-bottom: 4px solid #D4AF37; color: #1e3a8a; font-weight: bold; }
+        .tab-inactiva { color: #64748b; border-bottom: 4px solid transparent; }
+        .tab-inactiva:hover { color: #1e3a8a; }
+    </style>
+</head>
+<body class="text-slate-800 pb-12">
+    <!-- Toast de Notificación Nativo -->
+    <div id="alert-box" class="hidden fixed bottom-10 left-1/2 transform -translate-x-1/2 w-[90%] max-w-sm p-4 rounded-xl shadow-2xl z-50 text-white text-center font-bold text-sm transition-all duration-300"></div>
+
+    <nav class="bg-gradient-to-r from-blue-900 via-blue-800 to-slate-500 shadow-md border-b-2 border-dorado sticky top-0 z-30">
+        <div class="px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="bg-white p-1.5 rounded-full shadow-sm border border-dorado flex items-center justify-center h-10 w-10">
+                    <i class="fa-solid fa-bolt text-blue-900 text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight text-white leading-tight">
+                        <span class="text-dorado">PROYECTO</span> POSTES
+                    </h1>
+                    <p class="text-[10px] text-slate-200 font-semibold tracking-wider uppercase leading-tight">Gestión Operativa</p>
+                </div>
+            </div>
+            <div class="bg-blue-950 p-2 rounded-full border border-dorado text-white flex items-center justify-center">
+                <i class="fa-solid fa-signal text-green-400 text-xs animate-pulse"></i>
+            </div>
+        </div>
+        
+        <!-- Pestañas de Navegación estilo App -->
+        <div class="bg-white flex w-full overflow-x-auto no-scrollbar shadow-sm">
+            <button onclick="cambiarPestana('inventario')" id="btn-tab-inventario" class="flex-1 py-3 px-2 tab-activa transition-all duration-200 flex justify-center items-center text-xs sm:text-sm whitespace-nowrap active:bg-slate-50">
+                <i class="fa-solid fa-boxes-stacked mr-1.5"></i> Inventario
+            </button>
+            <button onclick="cambiarPestana('estadisticas')" id="btn-tab-estadisticas" class="flex-1 py-3 px-2 tab-inactiva transition-all duration-200 flex justify-center items-center text-xs sm:text-sm whitespace-nowrap active:bg-slate-50">
+                <i class="fa-solid fa-chart-pie mr-1.5"></i> Estadísticas
+            </button>
+        </div>
+    </nav>
+
+    <main class="w-full px-3 sm:max-w-7xl sm:mx-auto sm:px-6 lg:px-8 py-5">
+        <div id="vista-inventario" class="space-y-5 block">
+            
+            <!-- SECCIÓN INVENTARIO -->
+            <section>
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-lg sm:text-xl font-bold text-blue-900"><i class="fa-solid fa-warehouse mr-1 text-dorado"></i> Stock Actual</h2>
+                    <button onclick="toggleIngreso()" class="bg-green-600 hover:bg-green-700 active:scale-95 text-white text-xs sm:text-sm font-bold py-2 px-3 rounded-lg shadow transition-transform"><i class="fa-solid fa-plus mr-1"></i> Recibir</button>
+                </div>
+
+                <div id="panel-ingreso" class="hidden bg-white border border-slate-200 rounded-xl p-4 mb-4 shadow-sm">
+                    <h3 class="font-bold text-slate-700 mb-3 text-sm"><i class="fa-solid fa-truck-loading mr-1 text-green-600"></i> Registrar Ingreso (Galones)</h3>
+                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 items-end">
+                        <div><label class="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Azul</label><input type="number" id="ingreso-azul" min="0" value="0" class="w-full px-2 py-2 border rounded-lg text-center font-bold focus:ring-2 focus:ring-green-500 outline-none transition-all"></div>
+                        <div><label class="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Naranja</label><input type="number" id="ingreso-naranja" min="0" value="0" class="w-full px-2 py-2 border rounded-lg text-center font-bold focus:ring-2 focus:ring-green-500 outline-none transition-all"></div>
+                        <div><label class="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Aluminio</label><input type="number" id="ingreso-aluminio" min="0" value="0" class="w-full px-2 py-2 border rounded-lg text-center font-bold focus:ring-2 focus:ring-green-500 outline-none transition-all"></div>
+                        <div><label class="block text-[10px] font-semibold text-slate-500 mb-1 uppercase">Negro</label><input type="number" id="ingreso-negro" min="0" value="0" class="w-full px-2 py-2 border rounded-lg text-center font-bold focus:ring-2 focus:ring-green-500 outline-none transition-all"></div>
+                        <div class="col-span-2 sm:col-span-1"><button onclick="procesarIngreso()" class="w-full active:scale-95 bg-slate-800 text-white font-bold py-2 px-3 rounded-lg shadow transition-transform"><i class="fa-solid fa-check mr-1"></i> Guardar</button></div>
+                    </div>
+                </div>
+
+                <!-- Grid de 2 columnas en móviles para mejor visualización -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div class="rounded-xl shadow-sm p-4 color-azul flex flex-col justify-between"><div class="flex justify-between items-start"><span class="font-semibold text-xs sm:text-sm">Azul Profundo</span><i class="fa-solid fa-droplet opacity-40 text-lg"></i></div><div class="mt-2 text-2xl sm:text-4xl font-bold" id="stock-azul">154.00</div></div>
+                    <div class="rounded-xl shadow-sm p-4 color-naranja flex flex-col justify-between"><div class="flex justify-between items-start"><span class="font-semibold text-xs sm:text-sm">Naranja</span><i class="fa-solid fa-droplet opacity-40 text-lg"></i></div><div class="mt-2 text-2xl sm:text-4xl font-bold" id="stock-naranja">151.00</div></div>
+                    <div class="rounded-xl shadow-sm p-4 color-aluminio flex flex-col justify-between"><div class="flex justify-between items-start"><span class="font-semibold text-xs sm:text-sm text-slate-700">Aluminio</span><i class="fa-solid fa-droplet opacity-40 text-lg text-slate-700"></i></div><div class="mt-2 text-2xl sm:text-4xl font-bold text-slate-900" id="stock-aluminio">42.00</div></div>
+                    <div class="rounded-xl shadow-sm p-4 color-negro flex flex-col justify-between"><div class="flex justify-between items-start"><span class="font-semibold text-xs sm:text-sm">Negro</span><i class="fa-solid fa-droplet opacity-40 text-lg"></i></div><div class="mt-2 text-2xl sm:text-4xl font-bold" id="stock-negro">24.00</div></div>
+                </div>
+            </section>
+
+            <!-- CALCULADORA -->
+            <section class="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-slate-200">
+                <h2 class="text-lg font-bold mb-4 text-blue-900 border-b pb-2"><i class="fa-solid fa-calculator mr-2 text-dorado"></i> Proyección de Trabajo</h2>
+                
+                <div class="space-y-3 mb-5 bg-blue-50/50 p-3 rounded-xl border border-blue-100">
+                    <div>
+                        <label class="block text-xs font-bold text-blue-900 mb-1"><i class="fa-regular fa-calendar mr-1"></i> Fecha Ejecución</label>
+                        <input type="date" id="fecha-input" class="w-full px-3 py-2.5 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 shadow-sm bg-white outline-none text-sm appearance-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-blue-900 mb-1"><i class="fa-solid fa-map-location-dot mr-1"></i> Trayecto a embellecer</label>
+                        <input type="text" id="trayecto-input" placeholder="Ej. Av. Bolívar" class="w-full px-3 py-2.5 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 shadow-sm outline-none text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-blue-900 mb-1"><i class="fa-solid fa-layer-group mr-1"></i> Zona de Impacto</label>
+                        <select id="zona-input" class="w-full px-3 py-2.5 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 shadow-sm bg-white outline-none text-sm">
+                            <option value="" disabled selected>Seleccione zona...</option>
+                            <option value="Autopista">Autopista</option>
+                            <option value="Carretera Nacional">Carretera Nacional</option>
+                            <option value="Avenidas Principales">Avenidas Principales</option>
+                            <option value="Espacio Estratégico">Espacio Estratégico</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                        <h3 class="font-bold text-slate-700 mb-2 border-b pb-1 text-xs uppercase"><i class="fa-solid fa-bolt mr-1"></i> Baja Tensión (9m)</h3>
+                        <div class="flex items-center justify-between"><div><p class="font-semibold text-xs sm:text-sm text-slate-800">Mixto (Ngr/Alum)</p></div><input type="number" id="input-bt-9m-mixto" min="0" value="0" class="w-16 px-2 py-1.5 border rounded-lg text-center font-bold outline-none focus:ring-2 focus:ring-blue-500"></div>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                        <h3 class="font-bold text-slate-700 mb-2 border-b pb-1 text-xs uppercase"><i class="fa-solid fa-road mr-1"></i> Avenidas (8m)</h3>
+                        <div class="flex items-center justify-between mb-2"><div><p class="font-semibold text-xs sm:text-sm text-slate-800">Mixto (Azul/Nja)</p></div><input type="number" id="input-av-8m-mixto" min="0" value="0" class="w-16 px-2 py-1.5 border rounded-lg text-center font-bold outline-none focus:ring-2 focus:ring-blue-500"></div>
+                        <div class="flex items-center justify-between"><div><p class="font-semibold text-xs sm:text-sm text-slate-800">100% Azul</p></div><input type="number" id="input-av-8m-azul" min="0" value="0" class="w-16 px-2 py-1.5 border rounded-lg text-center font-bold outline-none focus:ring-2 focus:ring-blue-500"></div>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                        <h3 class="font-bold text-slate-700 mb-2 border-b pb-1 text-xs uppercase"><i class="fa-solid fa-car-side mr-1"></i> Autopistas (12m)</h3>
+                        <div class="flex items-center justify-between mb-2"><div><p class="font-semibold text-xs sm:text-sm text-slate-800">Mixto (Azul/Nja)</p></div><input type="number" id="input-aut-12m-mixto" min="0" value="0" class="w-16 px-2 py-1.5 border rounded-lg text-center font-bold outline-none focus:ring-2 focus:ring-blue-500"></div>
+                        <div class="flex items-center justify-between"><div><p class="font-semibold text-xs sm:text-sm text-slate-800">100% Aluminio</p></div><input type="number" id="input-aut-12m-alum" min="0" value="0" class="w-16 px-2 py-1.5 border rounded-lg text-center font-bold outline-none focus:ring-2 focus:ring-blue-500"></div>
+                    </div>
+                </div>
+                <div class="mt-4"><button onclick="calcularProyeccion()" class="w-full active:scale-95 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-4 rounded-xl transition-transform shadow-md flex justify-center items-center"><i class="fa-solid fa-calculator mr-2"></i> Calcular Retiro</button></div>
+            </section>
+
+            <!-- RESUMEN DE RETIRO -->
+            <section class="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-slate-200">
+                <h2 class="text-lg font-bold mb-3 text-blue-900 border-b pb-2"><i class="fa-solid fa-clipboard-check mr-2 text-dorado"></i> Confirmación</h2>
+                <div id="resumen-trayecto-container" class="hidden mb-4 p-3 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg shadow-sm">
+                    <p class="text-[10px] text-slate-500 uppercase font-bold mb-0.5">Destino:</p>
+                    <p id="resumen-trayecto-texto" class="text-blue-900 font-bold text-sm mb-1 leading-tight"></p>
+                    <div class="inline-block bg-white text-blue-800 px-2 py-0.5 rounded shadow-sm text-xs font-semibold border border-blue-100"><i class="fa-solid fa-arrow-trend-up mr-1"></i> <span id="resumen-postes-texto">0 postes</span></div>
+                </div>
+                <div class="bg-slate-50 rounded-xl p-4 mb-4 border border-slate-100">
+                    <h3 class="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">A despachar (Galones):</h3>
+                    <ul class="space-y-2">
+                        <li class="flex justify-between items-center text-sm"><span class="flex items-center"><span class="w-2.5 h-2.5 rounded-full bg-blue-900 mr-2"></span> Azul</span><span id="req-azul" class="font-bold">0.00</span></li>
+                        <li class="flex justify-between items-center text-sm"><span class="flex items-center"><span class="w-2.5 h-2.5 rounded-full bg-orange-500 mr-2"></span> Naranja</span><span id="req-naranja" class="font-bold">0.00</span></li>
+                        <li class="flex justify-between items-center text-sm"><span class="flex items-center"><span class="w-2.5 h-2.5 rounded-full bg-slate-400 mr-2"></span> Aluminio</span><span id="req-aluminio" class="font-bold">0.00</span></li>
+                        <li class="flex justify-between items-center text-sm"><span class="flex items-center"><span class="w-2.5 h-2.5 rounded-full bg-gray-900 mr-2"></span> Negro</span><span id="req-negro" class="font-bold">0.00</span></li>
+                    </ul>
+                </div>
+                <div class="space-y-3">
+                    <div><label class="block text-xs font-bold text-gray-700 mb-1"><i class="fa-solid fa-user-helmet-safety mr-1"></i> Cuadrilla Asignada</label><input type="text" id="responsable-input" placeholder="Nombre / Cuadrilla" class="w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"></div>
+                    <button id="btn-retirar" onclick="confirmarRetiro()" disabled class="w-full active:scale-95 bg-green-600 disabled:bg-slate-300 disabled:active:scale-100 text-white font-bold py-3.5 px-4 rounded-xl transition-transform shadow-md flex items-center justify-center"><i class="fa-solid fa-check-circle mr-2"></i> Confirmar Salida</button>
+                </div>
+            </section>
+
+            <!-- BITÁCORA -->
+            <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                    <h2 class="text-base font-bold text-blue-900"><i class="fa-solid fa-clock-rotate-left mr-2 text-dorado"></i> Bitácora</h2>
+                </div>
+                <!-- Div con scroll horizontal habilitado y scrollbar oculto para móvil -->
+                <div class="overflow-x-auto no-scrollbar w-full">
+                    <table class="min-w-full text-left text-[11px] sm:text-xs whitespace-nowrap">
+                        <thead class="bg-white text-slate-500 border-b border-slate-200">
+                            <tr>
+                                <th class="px-3 py-3 font-semibold">Fecha</th>
+                                <th class="px-3 py-3 font-semibold">Trayecto</th>
+                                <th class="px-3 py-3 font-semibold text-center">Pts</th>
+                                <th class="px-3 py-3 font-semibold text-right">Galones (Az/Nj/Al/Ng)</th>
+                                <th class="px-3 py-3 font-semibold text-center">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table-body" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                    <div id="empty-history" class="text-center py-6 text-slate-400 italic text-xs">Sin movimientos recientes.</div>
+                </div>
+            </section>
+        </div>
+
+        <!-- VISTA ESTADÍSTICAS (Oculta por defecto) -->
+        <div id="vista-estadisticas" class="space-y-5 hidden">
+            <button onclick="generarPDF()" class="w-full active:scale-95 bg-red-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition-transform flex items-center justify-center mb-2"><i class="fa-solid fa-file-pdf mr-2 text-lg"></i> Exportar Informe Ejecutivo PDF</button>
+            
+            <div class="bg-gradient-to-br from-blue-900 to-slate-800 rounded-xl shadow-lg border border-dorado p-5 text-white flex flex-col justify-center items-center">
+                <div class="text-xs text-dorado font-bold mb-1 uppercase tracking-widest text-center">Postes Recuperados</div>
+                <div class="text-6xl font-black text-white tracking-tighter" id="stat-general">0</div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-white rounded-xl shadow-sm border-l-4 border-gray-900 p-3"><div class="text-[10px] text-slate-500 font-semibold mb-0.5 leading-tight">Baja Tensión 9m</div><div class="text-xs font-bold text-slate-800 leading-tight">Mixto Ngr/Al</div><div class="mt-1 text-2xl font-black text-blue-900" id="stat-bt-mix">0</div></div>
+                <div class="bg-white rounded-xl shadow-sm border-l-4 border-orange-500 p-3"><div class="text-[10px] text-slate-500 font-semibold mb-0.5 leading-tight">Avenidas 8m</div><div class="text-xs font-bold text-slate-800 leading-tight">Mixto Az/Nj</div><div class="mt-1 text-2xl font-black text-blue-900" id="stat-av-mix">0</div></div>
+                <div class="bg-white rounded-xl shadow-sm border-l-4 border-blue-900 p-3"><div class="text-[10px] text-slate-500 font-semibold mb-0.5 leading-tight">Avenidas 8m</div><div class="text-xs font-bold text-slate-800 leading-tight">100% Azul</div><div class="mt-1 text-2xl font-black text-blue-900" id="stat-av-azul">0</div></div>
+                <div class="bg-white rounded-xl shadow-sm border-l-4 border-orange-500 p-3"><div class="text-[10px] text-slate-500 font-semibold mb-0.5 leading-tight">Autopistas 12m</div><div class="text-xs font-bold text-slate-800 leading-tight">Mixto Az/Nj</div><div class="mt-1 text-2xl font-black text-blue-900" id="stat-aut-mix">0</div></div>
+                <div class="bg-white rounded-xl shadow-sm border-l-4 border-slate-400 p-3"><div class="text-[10px] text-slate-500 font-semibold mb-0.5 leading-tight">Autopistas 12m</div><div class="text-xs font-bold text-slate-800 leading-tight">100% Alum</div><div class="mt-1 text-2xl font-black text-blue-900" id="stat-aut-alum">0</div></div>
+                
+                <div class="bg-white rounded-xl shadow-sm border-l-4 border-green-500 p-3 flex flex-col justify-between">
+                    <div><div class="text-[10px] text-slate-500 font-semibold leading-tight">Galones Totales</div></div>
+                    <div class="text-xl font-black text-green-600" id="stat-galones">0.00</div>
+                    <div class="grid grid-cols-2 gap-0.5 text-[8px] font-bold text-slate-600 mt-1"><div class="bg-blue-50 p-0.5 rounded">Az:<span id="stat-uso-azul">0</span></div><div class="bg-orange-50 p-0.5 rounded">Nj:<span id="stat-uso-naranja">0</span></div><div class="bg-slate-100 p-0.5 rounded">Al:<span id="stat-uso-aluminio">0</span></div><div class="bg-gray-100 p-0.5 rounded">Ng:<span id="stat-uso-negro">0</span></div></div>
+                </div>
+            </div>
+
+            <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 border-b border-slate-100 bg-slate-50"><h2 class="text-base font-bold text-blue-900"><i class="fa-solid fa-map-location mr-2 text-dorado"></i> Tramos Realizados</h2></div>
+                <div class="overflow-x-auto no-scrollbar w-full">
+                    <table class="min-w-full text-left text-[11px] sm:text-xs whitespace-nowrap"><thead class="bg-white text-slate-500 border-b border-slate-200"><tr><th class="px-4 py-3 font-semibold">Fecha</th><th class="px-4 py-3 font-semibold">Ubicación</th><th class="px-4 py-3 font-semibold text-center">Postes</th></tr></thead><tbody id="tramos-table-body" class="divide-y divide-slate-100"></tbody></table>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        // CONFIGURACIÓN SUPABASE
+        const supabaseUrl = 'https://udkoyqjqrurzfgcagbcq.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVka295cWpxcnVyemZnY2FnYmNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2MjY1NjUsImV4cCI6MjA5NTIwMjU2NX0.WMTXQLZHQnwyrzZiBoK_sikYOH0EPBWtBzSiXewF2Po';
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        let inventario = { azul: 0.00, naranja: 0.00, aluminio: 0.00, negro: 0.00 };
+        let estadisticasGlobales = { bt9mMixto: 0, av8mMixto: 0, av8mAzul: 0, aut12mMixto: 0, aut12mAlum: 0, totalGalonesUsados: 0, usadoAzul: 0, usadoNaranja: 0, usadoAluminio: 0, usadoNegro: 0, zonaAutopista: 0, zonaNacional: 0, zonaEstrategico: 0, zonaAvenidas: 0 };
+        let historial = [];
+        let tramosCompletados = [];
+        let calculoActual = { requerido: {}, postes: {}, totalPostes: 0, esValido: false };
+        const RENDIMIENTO = { base_mixto: 1/8, resto_mixto: 1/4, completo: 1/3 };
+
+        function mostrarAlerta(m, err=true) { 
+            const a = document.getElementById('alert-box'); 
+            a.innerHTML = `<i class="fa-solid ${err ? 'fa-triangle-exclamation' : (m.includes('Supabase') ? 'fa-cloud' : 'fa-circle-check')} mr-2"></i> ${m}`; 
+            a.className = `fixed bottom-10 left-1/2 transform -translate-x-1/2 w-[90%] max-w-sm p-4 rounded-xl shadow-2xl z-50 text-white text-center font-bold text-sm transition-all duration-300 ${err ? 'bg-red-600 border border-red-800' : 'bg-slate-800 border border-slate-900'}`; 
+            a.classList.remove('hidden', 'translate-y-20', 'opacity-0'); 
+            setTimeout(() => { a.classList.add('translate-y-20', 'opacity-0'); setTimeout(()=>a.classList.add('hidden'),300); }, 3500); 
+        }
+
+        function cambiarPestana(p) {
+            const vInv = document.getElementById('vista-inventario'), vEst = document.getElementById('vista-estadisticas');
+            const bInv = document.getElementById('btn-tab-inventario'), bEst = document.getElementById('btn-tab-estadisticas');
+            const cAct = "flex-1 py-3 px-2 tab-activa transition-all duration-200 flex justify-center items-center text-xs sm:text-sm whitespace-nowrap active:bg-slate-50";
+            const cIna = "flex-1 py-3 px-2 tab-inactiva transition-all duration-200 flex justify-center items-center text-xs sm:text-sm whitespace-nowrap active:bg-slate-50";
+            if(p === 'inventario') { vInv.className = "space-y-5 block animate-fade-in"; vEst.className = "space-y-5 hidden"; bInv.className = cAct; bEst.className = cIna; window.scrollTo({top: 0, behavior: 'smooth'}); }
+            else { vEst.className = "space-y-5 block animate-fade-in"; vInv.className = "space-y-5 hidden"; bEst.className = cAct; bInv.className = cIna; window.scrollTo({top: 0, behavior: 'smooth'}); }
+        }
+
+        function actualizarUIInventario() {
+            document.getElementById('stock-azul').innerText = inventario.azul.toFixed(2);
+            document.getElementById('stock-naranja').innerText = inventario.naranja.toFixed(2);
+            document.getElementById('stock-aluminio').innerText = inventario.aluminio.toFixed(2);
+            document.getElementById('stock-negro').innerText = inventario.negro.toFixed(2);
+        }
+
+        function toggleIngreso() { 
+            const p = document.getElementById('panel-ingreso');
+            p.classList.toggle('hidden');
+            if(!p.classList.contains('hidden')) p.scrollIntoView({behavior: 'smooth', block: 'center'});
+        }
+
+        // CARGA INICIAL DESDE LA NUBE
+        async function cargarDatosSupabase() {
+            mostrarAlerta("Conectando a Supabase...", false);
+            
+            // 1. Cargar Inventario
+            const { data: invData, error: invError } = await supabase.from('inventario').select('*').eq('id', 1).single();
+            if (invData) {
+                inventario = { azul: parseFloat(invData.azul), naranja: parseFloat(invData.naranja), aluminio: parseFloat(invData.aluminio), negro: parseFloat(invData.negro) };
+                actualizarUIInventario();
+            }
+
+            // 2. Cargar Movimientos y recalcular estadísticas en frontend
+            const { data: movs, error: movsError } = await supabase.from('movimientos').select('*').order('creado_en', { ascending: false });
+            if (movs) {
+                historial = movs.map(m => ({
+                    id: m.id, // ID en base de datos
+                    fecha: m.fecha,
+                    accion: m.trayecto,
+                    zona: m.zona,
+                    esIngreso: m.tipo === 'ingreso',
+                    culminado: m.estado === 'completado',
+                    totalPostes: m.total_postes === 0 ? "-" : m.total_postes,
+                    mov: { azul: parseFloat(m.galones_azul), naranja: parseFloat(m.galones_naranja), aluminio: parseFloat(m.galones_aluminio), negro: parseFloat(m.galones_negro) },
+                    postes: m.postes_detalle || {}
+                }));
+
+                tramosCompletados = [];
+                estadisticasGlobales = { bt9mMixto: 0, av8mMixto: 0, av8mAzul: 0, aut12mMixto: 0, aut12mAlum: 0, totalGalonesUsados: 0, usadoAzul: 0, usadoNaranja: 0, usadoAluminio: 0, usadoNegro: 0, zonaAutopista: 0, zonaNacional: 0, zonaEstrategico: 0, zonaAvenidas: 0 };
+                
+                movs.filter(m => m.tipo === 'retiro' && m.estado === 'completado').forEach(m => {
+                    tramosCompletados.unshift({ fecha: m.fecha, trayecto: m.trayecto, zona: m.zona, total: m.total_postes });
+                    
+                    if (m.postes_detalle) {
+                        estadisticasGlobales.bt9mMixto += m.postes_detalle.bt9mMixto || 0;
+                        estadisticasGlobales.av8mMixto += m.postes_detalle.av8mMixto || 0;
+                        estadisticasGlobales.av8mAzul += m.postes_detalle.av8mAzul || 0;
+                        estadisticasGlobales.aut12mMixto += m.postes_detalle.aut12mMixto || 0;
+                        estadisticasGlobales.aut12mAlum += m.postes_detalle.aut12mAlum || 0;
+                    }
+                    estadisticasGlobales.usadoAzul += parseFloat(m.galones_azul);
+                    estadisticasGlobales.usadoNaranja += parseFloat(m.galones_naranja);
+                    estadisticasGlobales.usadoAluminio += parseFloat(m.galones_aluminio);
+                    estadisticasGlobales.usadoNegro += parseFloat(m.galones_negro);
+                    estadisticasGlobales.totalGalonesUsados += parseFloat(m.galones_azul) + parseFloat(m.galones_naranja) + parseFloat(m.galones_aluminio) + parseFloat(m.galones_negro);
+
+                    if(m.zona === 'Autopista') estadisticasGlobales.zonaAutopista += m.total_postes;
+                    else if(m.zona === 'Carretera Nacional') estadisticasGlobales.zonaNacional += m.total_postes;
+                    else if(m.zona === 'Espacio Estratégico') estadisticasGlobales.zonaEstrategico += m.total_postes;
+                    else if(m.zona === 'Avenidas Principales') estadisticasGlobales.zonaAvenidas += m.total_postes;
+                });
+
+                actualizarUIHistorial();
+                actualizarUIEstadisticas();
+                mostrarAlerta("Sistema Sincronizado", false);
+            }
+        }
+
+        async function procesarIngreso() {
+            const azul = parseFloat(document.getElementById('ingreso-azul').value)||0, naranja = parseFloat(document.getElementById('ingreso-naranja').value)||0, aluminio = parseFloat(document.getElementById('ingreso-aluminio').value)||0, negro = parseFloat(document.getElementById('ingreso-negro').value)||0;
+            if(azul+naranja+aluminio+negro === 0) return mostrarAlerta("Ingresa valores validos", true);
+            
+            inventario.azul += azul; inventario.naranja += naranja; inventario.aluminio += aluminio; inventario.negro += negro;
+            const fechaActual = new Date().toISOString().split('T')[0];
+
+            // Subir a Supabase
+            await supabase.from('inventario').update(inventario).eq('id', 1);
+            const { data } = await supabase.from('movimientos').insert([{
+                fecha: fechaActual, tipo: 'ingreso', trayecto: 'Recepción', estado: 'completado',
+                galones_azul: azul, galones_naranja: naranja, galones_aluminio: aluminio, galones_negro: negro
+            }]).select();
+
+            historial.unshift({ id: data[0].id, fecha: fechaActual, accion: "Recepción", esIngreso: true, culminado: true, totalPostes: "-", mov: { azul, naranja, aluminio, negro } });
+            
+            actualizarUIInventario(); actualizarUIHistorial(); toggleIngreso();
+            ['azul','naranja','aluminio','negro'].forEach(c=>document.getElementById(`ingreso-${c}`).value=0);
+            mostrarAlerta("Ingreso registrado en Supabase", false);
+        }
+
+        function calcularProyeccion() {
+            const t = document.getElementById('trayecto-input').value.trim(), z = document.getElementById('zona-input').value, f = document.getElementById('fecha-input').value;
+            if(!f) return mostrarAlerta("Selecciona la fecha", true);
+            if(!t) return mostrarAlerta("Ingresa el trayecto", true);
+            if(!z) return mostrarAlerta("Selecciona la zona", true); 
+            
+            const p = { bt9mMixto: parseInt(document.getElementById('input-bt-9m-mixto').value)||0, av8mMixto: parseInt(document.getElementById('input-av-8m-mixto').value)||0, av8mAzul: parseInt(document.getElementById('input-av-8m-azul').value)||0, aut12mMixto: parseInt(document.getElementById('input-aut-12m-mixto').value)||0, aut12mAlum: parseInt(document.getElementById('input-aut-12m-alum').value)||0 };
+            const total = p.bt9mMixto + p.av8mMixto + p.av8mAzul + p.aut12mMixto + p.aut12mAlum;
+            if(total === 0) return mostrarAlerta("Ingresa al menos 1 poste", true);
+            
+            let req = { azul: 0, naranja: 0, aluminio: 0, negro: 0 };
+            req.negro += p.bt9mMixto * RENDIMIENTO.base_mixto; req.aluminio += p.bt9mMixto * RENDIMIENTO.resto_mixto;
+            req.azul += p.av8mMixto * RENDIMIENTO.base_mixto; req.naranja += p.av8mMixto * RENDIMIENTO.resto_mixto;
+            req.azul += p.av8mAzul * RENDIMIENTO.completo;
+            req.azul += p.aut12mMixto * RENDIMIENTO.base_mixto; req.naranja += p.aut12mMixto * RENDIMIENTO.resto_mixto;
+            req.aluminio += p.aut12mAlum * RENDIMIENTO.completo;
+            
+            calculoActual = { requerido: req, postes: p, totalPostes: total, trayecto: t, zona: z, fecha: f, esValido: true }; 
+            
+            document.getElementById('req-azul').innerText = req.azul.toFixed(2); document.getElementById('req-naranja').innerText = req.naranja.toFixed(2); document.getElementById('req-aluminio').innerText = req.aluminio.toFixed(2); document.getElementById('req-negro').innerText = req.negro.toFixed(2);
+            document.getElementById('resumen-trayecto-texto').innerText = t; document.getElementById('resumen-postes-texto').innerText = `${total} postes`; document.getElementById('resumen-trayecto-container').classList.remove('hidden');
+            
+            if(req.azul > inventario.azul || req.naranja > inventario.naranja || req.aluminio > inventario.aluminio || req.negro > inventario.negro) { 
+                mostrarAlerta("Stock insuficiente", true); document.getElementById('btn-retirar').disabled = true; calculoActual.esValido = false; 
+            } else { 
+                document.getElementById('btn-retirar').disabled = false; 
+                document.getElementById('btn-retirar').scrollIntoView({behavior: 'smooth', block: 'center'});
+            }
+        }
+
+        async function confirmarRetiro() {
+            if(!calculoActual.esValido) return;
+            const resp = document.getElementById('responsable-input').value.trim();
+            if(!resp) return mostrarAlerta("Indica la cuadrilla", true);
+            
+            inventario.azul -= calculoActual.requerido.azul; inventario.naranja -= calculoActual.requerido.naranja; inventario.aluminio -= calculoActual.requerido.aluminio; inventario.negro -= calculoActual.requerido.negro;
+            
+            // Subir a Supabase
+            await supabase.from('inventario').update(inventario).eq('id', 1);
+            const { data } = await supabase.from('movimientos').insert([{
+                fecha: calculoActual.fecha, tipo: 'retiro', trayecto: calculoActual.trayecto, zona: calculoActual.zona, responsable: resp,
+                estado: 'en_desarrollo', total_postes: calculoActual.totalPostes,
+                galones_azul: calculoActual.requerido.azul, galones_naranja: calculoActual.requerido.naranja, 
+                galones_aluminio: calculoActual.requerido.aluminio, galones_negro: calculoActual.requerido.negro,
+                postes_detalle: calculoActual.postes
+            }]).select();
+
+            historial.unshift({ id: data[0].id, fecha: calculoActual.fecha, accion: calculoActual.trayecto, zona: calculoActual.zona, esIngreso: false, culminado: false, totalPostes: calculoActual.totalPostes, mov: { ...calculoActual.requerido }, postes: calculoActual.postes });
+            
+            actualizarUIInventario(); actualizarUIHistorial(); 
+            document.getElementById('trayecto-input').value = ""; document.getElementById('zona-input').value = ""; document.getElementById('responsable-input').value = ""; document.getElementById('resumen-trayecto-container').classList.add('hidden');
+            ['azul','naranja','aluminio','negro'].forEach(c=>document.getElementById(`req-${c}`).innerText="0.00"); document.getElementById('btn-retirar').disabled=true; calculoActual.esValido=false;
+            mostrarAlerta("Retiro Sincronizado (En Desarrollo)", false);
+        }
+
+        async function marcarCulminado(index) {
+            const m = historial[index];
+            if(m.esIngreso || m.culminado) return;
+            
+            // Actualizar Supabase
+            await supabase.from('movimientos').update({ estado: 'completado' }).eq('id', m.id);
+            
+            m.culminado = true;
+            
+            estadisticasGlobales.bt9mMixto += m.postes.bt9mMixto; estadisticasGlobales.av8mMixto += m.postes.av8mMixto; estadisticasGlobales.av8mAzul += m.postes.av8mAzul; estadisticasGlobales.aut12mMixto += m.postes.aut12mMixto; estadisticasGlobales.aut12mAlum += m.postes.aut12mAlum;
+            estadisticasGlobales.usadoAzul += m.mov.azul; estadisticasGlobales.usadoNaranja += m.mov.naranja; estadisticasGlobales.usadoAluminio += m.mov.aluminio; estadisticasGlobales.usadoNegro += m.mov.negro;
+            estadisticasGlobales.totalGalonesUsados += (m.mov.azul + m.mov.naranja + m.mov.aluminio + m.mov.negro);
+            
+            if(m.zona === 'Autopista') estadisticasGlobales.zonaAutopista += m.totalPostes;
+            else if(m.zona === 'Carretera Nacional') estadisticasGlobales.zonaNacional += m.totalPostes;
+            else if(m.zona === 'Espacio Estratégico') estadisticasGlobales.zonaEstrategico += m.totalPostes;
+            else if(m.zona === 'Avenidas Principales') estadisticasGlobales.zonaAvenidas += m.totalPostes;
+
+            tramosCompletados.unshift({ fecha: m.fecha, trayecto: m.accion, zona: m.zona, total: m.totalPostes });
+            actualizarUIEstadisticas(); actualizarUIHistorial();
+            mostrarAlerta("Tramo Completado y Respaldado", false);
+        }
+
+        async function borrarMovimiento(index) {
+            const m = historial[index];
+            
+            if (m.esIngreso) {
+                inventario.azul -= m.mov.azul; inventario.naranja -= m.mov.naranja; inventario.aluminio -= m.mov.aluminio; inventario.negro -= m.mov.negro;
+            } else {
+                inventario.azul += m.mov.azul; inventario.naranja += m.mov.naranja; inventario.aluminio += m.mov.aluminio; inventario.negro += m.mov.negro;
+                if (m.culminado) {
+                    estadisticasGlobales.bt9mMixto -= m.postes.bt9mMixto; estadisticasGlobales.av8mMixto -= m.postes.av8mMixto; estadisticasGlobales.av8mAzul -= m.postes.av8mAzul; estadisticasGlobales.aut12mMixto -= m.postes.aut12mMixto; estadisticasGlobales.aut12mAlum -= m.postes.aut12mAlum;
+                    estadisticasGlobales.usadoAzul -= m.mov.azul; estadisticasGlobales.usadoNaranja -= m.mov.naranja; estadisticasGlobales.usadoAluminio -= m.mov.aluminio; estadisticasGlobales.usadoNegro -= m.mov.negro;
+                    estadisticasGlobales.totalGalonesUsados -= (m.mov.azul + m.mov.naranja + m.mov.aluminio + m.mov.negro);
+                    
+                    if(m.zona === 'Autopista') estadisticasGlobales.zonaAutopista -= m.totalPostes;
+                    else if(m.zona === 'Carretera Nacional') estadisticasGlobales.zonaNacional -= m.totalPostes;
+                    else if(m.zona === 'Espacio Estratégico') estadisticasGlobales.zonaEstrategico -= m.totalPostes;
+                    else if(m.zona === 'Avenidas Principales') estadisticasGlobales.zonaAvenidas -= m.totalPostes;
+
+                    const idxTramo = tramosCompletados.findIndex(t => t.fecha === m.fecha && t.trayecto === m.accion);
+                    if (idxTramo > -1) tramosCompletados.splice(idxTramo, 1);
+                    actualizarUIEstadisticas();
+                }
+            }
+
+            // Sincronizar Borrado en DB
+            await supabase.from('inventario').update(inventario).eq('id', 1);
+            await supabase.from('movimientos').delete().eq('id', m.id);
+
+            historial.splice(index, 1);
+            actualizarUIInventario(); actualizarUIHistorial();
+            mostrarAlerta("Registro eliminado de la Nube", false);
+        }
+
+        function getZonaBadge(zona) {
+            if(!zona) return '';
+            let c = 'text-gray-500'; 
+            if (zona === 'Autopista') c = 'text-blue-600';
+            else if (zona === 'Carretera Nacional') c = 'text-slate-600';
+            else if (zona === 'Espacio Estratégico') c = 'text-purple-600';
+            else if (zona === 'Avenidas Principales') c = 'text-emerald-600';
+            return `<span class="block ${c} text-[9px] uppercase tracking-wide font-bold mt-0.5">${zona}</span>`;
+        }
+
+        function actualizarUIHistorial() {
+            const tbody = document.getElementById('history-table-body');
+            document.getElementById('empty-history').style.display = historial.length ? 'none' : 'block';
+            tbody.innerHTML = '';
+            
+            historial.forEach((m, index) => {
+                const tr = document.createElement('tr');
+                let badge = ''; let btns = `<button onclick="borrarMovimiento(${index})" class="text-red-500 hover:text-red-700 active:scale-90 p-2" title="Eliminar"><i class="fa-solid fa-trash"></i></button>`;
+                
+                if(m.esIngreso) {
+                    badge = `<span class="text-green-600 text-[10px] font-bold"><i class="fa-solid fa-check mr-1"></i>Ingreso</span>`;
+                    tr.className = "bg-green-50/50";
+                    tr.innerHTML = `<td class="px-3 py-3 whitespace-nowrap">${m.fecha.substring(5)}</td><td class="px-3 py-3 font-bold text-slate-700 whitespace-normal min-w-[120px] leading-tight">${m.accion}</td><td class="px-3 py-3 text-center">-</td>
+                    <td class="px-3 py-3 text-right font-mono text-[10px] text-green-700 tracking-tighter">${m.mov.azul.toFixed(0)}/${m.mov.naranja.toFixed(0)}/${m.mov.aluminio.toFixed(0)}/${m.mov.negro.toFixed(0)}</td>
+                    <td class="px-3 py-3 text-center flex flex-col items-center justify-center">${badge} <div class="mt-1">${btns}</div></td>`;
+                } else {
+                    if (m.culminado) { badge = `<span class="text-blue-600 text-[10px] font-bold"><i class="fa-solid fa-check-double mr-1"></i>Listo</span>`; } 
+                    else { 
+                        badge = `<span class="text-amber-600 text-[10px] font-bold"><i class="fa-solid fa-spinner fa-spin mr-1"></i>En Proc.</span>`;
+                        btns = `<button onclick="marcarCulminado(${index})" class="text-green-600 hover:text-green-800 active:scale-90 p-2" title="Culminar"><i class="fa-solid fa-check-circle text-lg"></i></button>` + btns;
+                    }
+                    tr.className = "hover:bg-slate-50";
+                    tr.innerHTML = `<td class="px-3 py-3 whitespace-nowrap text-slate-500">${m.fecha.substring(5)}</td><td class="px-3 py-3 font-bold text-blue-900 whitespace-normal min-w-[120px] leading-tight">${m.accion} ${getZonaBadge(m.zona)}</td><td class="px-3 py-3 text-center font-bold text-sm">${m.totalPostes}</td>
+                    <td class="px-3 py-3 text-right font-mono text-[10px] text-slate-500 tracking-tighter">${m.mov.azul.toFixed(0)}/${m.mov.naranja.toFixed(0)}/${m.mov.aluminio.toFixed(0)}/${m.mov.negro.toFixed(0)}</td>
+                    <td class="px-3 py-3 text-center flex flex-col items-center justify-center">${badge} <div class="mt-1 flex gap-1">${btns}</div></td>`;
+                }
+                tbody.appendChild(tr);
+            });
+        }
+
+        function actualizarUIEstadisticas() {
+            document.getElementById('stat-bt-mix').innerText = estadisticasGlobales.bt9mMixto; document.getElementById('stat-av-mix').innerText = estadisticasGlobales.av8mMixto;
+            document.getElementById('stat-av-azul').innerText = estadisticasGlobales.av8mAzul; document.getElementById('stat-aut-mix').innerText = estadisticasGlobales.aut12mMixto;
+            document.getElementById('stat-aut-alum').innerText = estadisticasGlobales.aut12mAlum;
+            document.getElementById('stat-galones').innerText = estadisticasGlobales.totalGalonesUsados.toFixed(1);
+            document.getElementById('stat-uso-azul').innerText = estadisticasGlobales.usadoAzul.toFixed(0); document.getElementById('stat-uso-naranja').innerText = estadisticasGlobales.usadoNaranja.toFixed(0);
+            document.getElementById('stat-uso-aluminio').innerText = estadisticasGlobales.usadoAluminio.toFixed(0); document.getElementById('stat-uso-negro').innerText = estadisticasGlobales.usadoNegro.toFixed(0);
+            document.getElementById('stat-general').innerText = estadisticasGlobales.bt9mMixto + estadisticasGlobales.av8mMixto + estadisticasGlobales.av8mAzul + estadisticasGlobales.aut12mMixto + estadisticasGlobales.aut12mAlum;
+
+            const tbody = document.getElementById('tramos-table-body');
+            tbody.innerHTML = '';
+            tramosCompletados.forEach(t => {
+                const tr = document.createElement('tr'); tr.className = "border-b border-slate-50";
+                tr.innerHTML = `<td class="px-4 py-3 whitespace-nowrap text-slate-500">${t.fecha.substring(5)}</td><td class="px-4 py-3 font-bold text-slate-700 whitespace-normal leading-tight">${t.trayecto} <span class="block text-[9px] font-normal text-slate-400 uppercase mt-0.5">${t.zona}</span></td><td class="px-4 py-3 text-center font-bold text-blue-900">${t.total}</td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function generarPDF() {
+            const { jsPDF } = window.jspdf; const doc = new jsPDF();
+            const granTotal = estadisticasGlobales.bt9mMixto + estadisticasGlobales.av8mMixto + estadisticasGlobales.av8mAzul + estadisticasGlobales.aut12mMixto + estadisticasGlobales.aut12mAlum;
+            const fechaActual = new Date().toLocaleDateString('es-VE');
+
+            doc.setFillColor(30, 58, 138); doc.rect(0, 0, 210, 30, 'F');
+            doc.setTextColor(255, 255, 255); doc.setFontSize(16); doc.setFont("helvetica", "bold");
+            doc.text("PROYECTO POSTES - CONTROL Y ESTADÍSTICAS", 15, 15);
+            doc.setFontSize(10); doc.setFont("helvetica", "normal");
+            doc.text(`Municipio Guacara, Edo. Carabobo | Fecha: ${fechaActual}`, 15, 23);
+
+            doc.setTextColor(0, 0, 0); doc.setFontSize(12); doc.setFont("helvetica", "bold"); doc.text("Resumen Ejecutivo Vial", 15, 40); doc.setFontSize(10); doc.setFont("helvetica", "normal");
+            
+            let fraseEjecucion = "A la fecha, no hay reportes operativos completados.";
+            if (tramosCompletados.length > 0) {
+                const fechas = tramosCompletados.filter(t=>t.fecha).map(t=>new Date(t.fecha).getTime()).filter(time=>!isNaN(time));
+                if (fechas.length > 0) {
+                    const fInicio = new Date(Math.min(...fechas) + (1000*60*60*4)), fFin = new Date(Math.max(...fechas) + (1000*60*60*4));
+                    const dias = Math.ceil((fFin - fInicio) / (1000 * 60 * 60 * 24)) + 1;
+                    fraseEjecucion = `Durante un periodo de ejecución operativa de ${dias} días (desde ${fInicio.toLocaleDateString('es-VE')} al ${fFin.toLocaleDateString('es-VE')}), se ha consolidado exitosamente la restauración de un total de ${granTotal} postes de alumbrado.`;
+                }
+            }
+
+            let textoZonas = [];
+            if(estadisticasGlobales.zonaAutopista > 0) textoZonas.push(`${estadisticasGlobales.zonaAutopista} en Autopistas`);
+            if(estadisticasGlobales.zonaAvenidas > 0) textoZonas.push(`${estadisticasGlobales.zonaAvenidas} en Avenidas Principales`);
+            if(estadisticasGlobales.zonaNacional > 0) textoZonas.push(`${estadisticasGlobales.zonaNacional} en Carr. Nacionales`);
+            if(estadisticasGlobales.zonaEstrategico > 0) textoZonas.push(`${estadisticasGlobales.zonaEstrategico} en Espacios Estratégicos`);
+            let desgloseZonas = textoZonas.length > 0 ? ` impactando: ${textoZonas.join(", ")}.` : "";
+
+            const resumenTexto = `El presente documento expone el balance oficial de la ejecución del "Proyecto Postes".\n\n${fraseEjecucion}${desgloseZonas}\n\nPara materializar estos resultados se registró una inversión de ${estadisticasGlobales.totalGalonesUsados.toFixed(2)} galones de recubrimiento industrial: ${estadisticasGlobales.usadoAzul.toFixed(2)} gal. Azul, ${estadisticasGlobales.usadoNaranja.toFixed(2)} gal. Naranja, ${estadisticasGlobales.usadoAluminio.toFixed(2)} gal. Aluminio y ${estadisticasGlobales.usadoNegro.toFixed(2)} gal. Negro.`;
+            const splitText = doc.splitTextToSize(resumenTexto, 180); doc.text(splitText, 15, 48);
+
+            const tableStartY = 48 + (splitText.length * 4.5) + 8;
+            const tableData = tramosCompletados.map(t => [ t.fecha, `${t.trayecto} (${t.zona})`, t.total.toString() ]);
+            doc.autoTable({ startY: tableStartY, head: [['Fecha', 'Tramo Embellecido', 'Postes']], body: tableData, theme: 'striped', headStyles: { fillColor: [212, 175, 55] }, styles: { fontSize: 9 } });
+            doc.save(`Reporte_Postes_${fechaActual.replace(/\//g, '-')}.pdf`);
+        }
+
+        window.onload = () => {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('fecha-input').value = today;
+            // Iniciar sincronización con Supabase al abrir la app
+            cargarDatosSupabase();
+        }
+    </script>
+</body>
+</html>
