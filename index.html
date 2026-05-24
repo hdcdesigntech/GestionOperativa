@@ -13,6 +13,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
         
@@ -228,7 +229,7 @@
         // CONFIGURACIÓN SUPABASE
         const supabaseUrl = 'https://udkoyqjqrurzfgcagbcq.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVka295cWpxcnVyemZnY2FnYmNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2MjY1NjUsImV4cCI6MjA5NTIwMjU2NX0.WMTXQLZHQnwyrzZiBoK_sikYOH0EPBWtBzSiXewF2Po';
-        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+        const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 
         let inventario = { azul: 0.00, naranja: 0.00, aluminio: 0.00, negro: 0.00 };
         let estadisticasGlobales = { bt9mMixto: 0, av8mMixto: 0, av8mAzul: 0, aut12mMixto: 0, aut12mAlum: 0, totalGalonesUsados: 0, usadoAzul: 0, usadoNaranja: 0, usadoAluminio: 0, usadoNegro: 0, zonaAutopista: 0, zonaNacional: 0, zonaEstrategico: 0, zonaAvenidas: 0 };
@@ -272,14 +273,14 @@
             mostrarAlerta("Conectando a Supabase...", false);
             
             // 1. Cargar Inventario
-            const { data: invData, error: invError } = await supabase.from('inventario').select('*').eq('id', 1).single();
+            const { data: invData, error: invError } = await supabaseClient.from('inventario').select('*').eq('id', 1).single();
             if (invData) {
                 inventario = { azul: parseFloat(invData.azul), naranja: parseFloat(invData.naranja), aluminio: parseFloat(invData.aluminio), negro: parseFloat(invData.negro) };
                 actualizarUIInventario();
             }
 
             // 2. Cargar Movimientos y recalcular estadísticas en frontend
-            const { data: movs, error: movsError } = await supabase.from('movimientos').select('*').order('creado_en', { ascending: false });
+            const { data: movs, error: movsError } = await supabaseClient.from('movimientos').select('*').order('creado_en', { ascending: false });
             if (movs) {
                 historial = movs.map(m => ({
                     id: m.id, // ID en base de datos
@@ -332,8 +333,8 @@
             const fechaActual = new Date().toISOString().split('T')[0];
 
             // Subir a Supabase
-            await supabase.from('inventario').update(inventario).eq('id', 1);
-            const { data } = await supabase.from('movimientos').insert([{
+            await supabaseClient.from('inventario').update(inventario).eq('id', 1);
+            const { data } = await supabaseClient.from('movimientos').insert([{
                 fecha: fechaActual, tipo: 'ingreso', trayecto: 'Recepción', estado: 'completado',
                 galones_azul: azul, galones_naranja: naranja, galones_aluminio: aluminio, galones_negro: negro
             }]).select();
@@ -383,8 +384,8 @@
             inventario.azul -= calculoActual.requerido.azul; inventario.naranja -= calculoActual.requerido.naranja; inventario.aluminio -= calculoActual.requerido.aluminio; inventario.negro -= calculoActual.requerido.negro;
             
             // Subir a Supabase
-            await supabase.from('inventario').update(inventario).eq('id', 1);
-            const { data } = await supabase.from('movimientos').insert([{
+            await supabaseClient.from('inventario').update(inventario).eq('id', 1);
+            const { data } = await supabaseClient.from('movimientos').insert([{
                 fecha: calculoActual.fecha, tipo: 'retiro', trayecto: calculoActual.trayecto, zona: calculoActual.zona, responsable: resp,
                 estado: 'en_desarrollo', total_postes: calculoActual.totalPostes,
                 galones_azul: calculoActual.requerido.azul, galones_naranja: calculoActual.requerido.naranja, 
@@ -405,7 +406,7 @@
             if(m.esIngreso || m.culminado) return;
             
             // Actualizar Supabase
-            await supabase.from('movimientos').update({ estado: 'completado' }).eq('id', m.id);
+            await supabaseClient.from('movimientos').update({ estado: 'completado' }).eq('id', m.id);
             
             m.culminado = true;
             
@@ -447,8 +448,8 @@
             }
 
             // Sincronizar Borrado en DB
-            await supabase.from('inventario').update(inventario).eq('id', 1);
-            await supabase.from('movimientos').delete().eq('id', m.id);
+            await supabaseClient.from('inventario').update(inventario).eq('id', 1);
+            await supabaseClient.from('movimientos').delete().eq('id', m.id);
 
             historial.splice(index, 1);
             actualizarUIInventario(); actualizarUIHistorial();
