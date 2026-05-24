@@ -521,9 +521,9 @@
 
             doc.setFillColor(30, 58, 138); doc.rect(0, 0, 210, 30, 'F');
             doc.setTextColor(255, 255, 255); doc.setFontSize(16); doc.setFont("helvetica", "bold");
-            doc.text("PROYECTO POSTES - CONTROL Y ESTADÍSTICAS", 15, 15);
+            doc.text("EMBELLECIMIENTO VERTICAL - CONTROL Y ESTADÍSTICAS", 15, 15);
             doc.setFontSize(10); doc.setFont("helvetica", "normal");
-            doc.text(`Municipio Guacara, Edo. Carabobo | Fecha: ${fechaActual}`, 15, 23);
+            doc.text(`Alcaldia Municipio Guacara/Dirección Ejecutiva | Fecha: ${fechaActual}`, 15, 23);
 
             doc.setTextColor(0, 0, 0); doc.setFontSize(12); doc.setFont("helvetica", "bold"); doc.text("Resumen Ejecutivo Vial", 15, 40); doc.setFontSize(10); doc.setFont("helvetica", "normal");
             
@@ -533,7 +533,7 @@
                 if (fechas.length > 0) {
                     const fInicio = new Date(Math.min(...fechas) + (1000*60*60*4)), fFin = new Date(Math.max(...fechas) + (1000*60*60*4));
                     const dias = Math.ceil((fFin - fInicio) / (1000 * 60 * 60 * 24)) + 1;
-                    fraseEjecucion = `Durante un periodo de ejecución operativa de ${dias} días (desde ${fInicio.toLocaleDateString('es-VE')} al ${fFin.toLocaleDateString('es-VE')}), se ha consolidado exitosamente la restauración de un total de ${granTotal} postes de alumbrado.`;
+                    fraseEjecucion = `Durante un periodo de ejecución operativa de ${dias} días (desde ${fInicio.toLocaleDateString('es-VE')} al ${fFin.toLocaleDateString('es-VE')}), se ha consolidado exitosamente la restauración de un total de ${granTotal} postes de Baja Tension y Postes de alumbrado.`;
                 }
             }
 
@@ -544,7 +544,7 @@
             if(estadisticasGlobales.zonaEstrategico > 0) textoZonas.push(`${estadisticasGlobales.zonaEstrategico} en Espacios Estratégicos`);
             let desgloseZonas = textoZonas.length > 0 ? ` impactando: ${textoZonas.join(", ")}.` : "";
 
-            const resumenTexto = `El presente documento expone el balance oficial de la ejecución del "Proyecto Postes".\n\n${fraseEjecucion}${desgloseZonas}\n\nPara materializar estos resultados se registró una inversión de ${estadisticasGlobales.totalGalonesUsados.toFixed(2)} galones de recubrimiento industrial: ${estadisticasGlobales.usadoAzul.toFixed(2)} gal. Azul, ${estadisticasGlobales.usadoNaranja.toFixed(2)} gal. Naranja, ${estadisticasGlobales.usadoAluminio.toFixed(2)} gal. Aluminio y ${estadisticasGlobales.usadoNegro.toFixed(2)} gal. Negro.`;
+            const resumenTexto = `El presente documento expone el balance oficial de la ejecución del "Plan de Embellecimiento Vertical (Pintado de Postes)".\n\n${fraseEjecucion}${desgloseZonas}\n\nPara materializar estos resultados se registró una inversión de ${estadisticasGlobales.totalGalonesUsados.toFixed(2)} galones de recubrimiento industrial: ${estadisticasGlobales.usadoAzul.toFixed(2)} gal. Azul, ${estadisticasGlobales.usadoNaranja.toFixed(2)} gal. Naranja, ${estadisticasGlobales.usadoAluminio.toFixed(2)} gal. Aluminio y ${estadisticasGlobales.usadoNegro.toFixed(2)} gal. Negro.`;
             const splitText = doc.splitTextToSize(resumenTexto, 180); doc.text(splitText, 15, 48);
 
             const tableStartY = 48 + (splitText.length * 4.5) + 8;
