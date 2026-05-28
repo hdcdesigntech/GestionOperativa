@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Sistema Integral de Postes</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Librerías de PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap');
+        
+        * { -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; overscroll-behavior-y: none; }
+        
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .tab-activa { border-bottom: 3px solid #3b82f6; color: #1e3a8a; font-weight: bold; background-color: #f1f5f9; }
+        .tab-inactiva { color: #64748b; border-bottom: 3px solid transparent; }
+        
+        /* Colores de inventario */
+        .badge-azul { background-color: #1e3a8a; color: white; }
+        .badge-naranja { background-color: #ea580c; color: white; }
+        .badge-alum { background-color: #94a3b8; color: #0f172a; }
+        .badge-negro { background-color: #111827; color: white; }
+        
+        /* Animaciones */
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="text-slate-800 pb-20">
+    
+    <!-- Toast Alertas -->
+    <div id="alert-box" class="hidden fixed top-5 left-1/2 transform -translate-x-1/2 w-[90%] max-w-sm p-4 rounded-xl shadow-2xl z-50 text-white text-center font-bold text-sm transition-all duration-300"></div>
+
+    <!-- Header Corporativo -->
+    <nav class="bg-slate-900 shadow-md sticky top-0 z-40 border-b border-slate-800">
+        <div class="px-4 py-3 flex justify-between items-center bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900">
+            <div class="flex items-center gap-3">
+                <!-- Ícono con borde plata y color dorado -->
+                <div class="bg-gradient-to-br from-slate-700 to-slate-900 border border-slate-500 p-1.5 rounded-lg shadow-lg flex items-center justify-center h-11 w-11 relative overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-tr from-amber-500/20 to-transparent"></div>
+                    <i class="fa-solid fa-city text-transparent bg-clip-text bg-gradient-to-br from-yellow-200 via-amber-400 to-yellow-600 text-xl relative z-10"></i>
+                </div>
+                <div>
+                    <!-- Título Plata y Dorado -->
+                    <h1 class="text-xl font-black tracking-tight leading-tight uppercase drop-shadow-md">
+                        <span class="bg-gradient-to-br from-slate-100 via-slate-300 to-slate-500 bg-clip-text text-transparent">Sistema</span> 
+                        <span class="bg-gradient-to-br from-yellow-200 via-amber-400 to-yellow-600 bg-clip-text text-transparent">Postes</span>
+                    </h1>
+                    <p class="text-[10px] text-slate-400 font-bold tracking-wider uppercase leading-tight mt-0.5">Gestión Operativa Integral</p>
+                </div>
+            </div>
+            <div class="text-slate-300 text-xs flex items-center gap-2 bg-slate-800 px-2 py-1 rounded border border-slate-700">
+                <i class="fa-solid fa-database text-amber-500"></i> Local
+            </div>
+        </div>
+        
+        <!-- Pestañas Superiores -->
+        <div class="bg-white flex w-full overflow-x-auto no-scrollbar shadow-sm text-xs sm:text-sm">
+            <button onclick="cambiarPestana('dashboard')" id="btn-tab-dashboard" class="flex-1 py-3 px-3 tab-activa whitespace-nowrap transition-all">
+                <i class="fa-solid fa-chart-pie mr-1"></i> Resumen
+            </button>
+            <button onclick="cambiarPestana('inventario')" id="btn-tab-inventario" class="flex-1 py-3 px-3 tab-inactiva whitespace-nowrap transition-all">
+                <i class="fa-solid fa-boxes-stacked mr-1"></i> Inventario
+            </button>
+            <button onclick="cambiarPestana('diagnostico')" id="btn-tab-diagnostico" class="flex-1 py-3 px-3 tab-inactiva whitespace-nowrap transition-all">
+                <i class="fa-solid fa-binoculars mr-1"></i> Diagnóstico
+            </button>
+            <button onclick="cambiarPestana('ejecucion')" id="btn-tab-ejecucion" class="flex-1 py-3 px-3 tab-inactiva whitespace-nowrap transition-all">
+                <i class="fa-solid fa-paint-roller mr-1"></i> Ejecución
+            </button>
+        </div>
+    </nav>
+
+    <main class="w-full px-3 sm:max-w-4xl sm:mx-auto py-5">
+        
+        <!-- ========================================== -->
+        <!-- PESTAÑA 1: DASHBOARD GENERAL -->
+        <!-- ========================================== -->
+        <div id="vista-dashboard" class="space-y-4 fade-in block">
+            
+            <button onclick="generarPDFMaster()" class="w-full active:scale-95 bg-slate-800 hover:bg-slate-900 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition-transform flex items-center justify-center mb-2">
+                <i class="fa-solid fa-file-pdf mr-2 text-red-400 text-lg"></i> Exportar Reporte Gerencial PDF
+            </button>
+
+            <!-- KPIs Globales -->
+            <div class="grid grid-cols-2 gap-3">
+                <!-- Tarjeta Diagnóstico -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 relative overflow-hidden flex flex-col justify-between">
+                    <i class="fa-solid fa-map-location-dot absolute -right-3 -bottom-3 text-6xl text-slate-100"></i>
+                    <div>
+                        <p class="text-[10px] text-slate-500 uppercase font-bold relative z-10">Postes Diagnosticados</p>
+                        <div class="flex items-baseline gap-2 relative z-10">
+                            <p class="text-3xl font-black text-slate-800" id="dash-postes-diag">0</p>
+                            <p class="text-[9px] text-slate-400 font-bold"><span id="dash-rutas-total">0</span> rutas</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-1 mt-3 relative z-10">
+                        <div class="bg-slate-50 rounded p-1.5 border border-slate-100">
+                            <p class="text-[8px] uppercase font-bold text-slate-400">B.Tensión</p>
+                            <p class="text-sm font-black text-slate-700" id="dash-diag-bt">0</p>
+                        </div>
+                        <div class="bg-slate-50 rounded p-1.5 border border-slate-100">
+                            <p class="text-[8px] uppercase font-bold text-slate-400">Alumbrado</p>
+                            <p class="text-sm font-black text-slate-700" id="dash-diag-al">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tarjeta Ejecutado -->
+                <div class="bg-blue-600 rounded-xl shadow-sm border border-blue-700 p-4 relative overflow-hidden text-white flex flex-col justify-between">
+                    <i class="fa-solid fa-paint-roller absolute -right-3 -bottom-3 text-6xl text-blue-500 opacity-50"></i>
+                    <div>
+                        <p class="text-[10px] text-blue-200 uppercase font-bold relative z-10">Postes Pintados</p>
+                        <p class="text-3xl font-black text-white relative z-10" id="dash-postes-pint">0</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-1 mt-2 relative z-10">
+                        <div class="bg-blue-700 rounded p-1.5 border border-blue-500">
+                            <p class="text-[8px] uppercase font-bold text-blue-300">B.Tensión</p>
+                            <p class="text-sm font-black text-white" id="dash-pint-bt">0</p>
+                        </div>
+                        <div class="bg-blue-700 rounded p-1.5 border border-blue-500">
+                            <p class="text-[8px] uppercase font-bold text-blue-300">Alumbrado</p>
+                            <p class="text-sm font-black text-white" id="dash-pint-al">0</p>
+                        </div>
+                    </div>
+                    <div class="w-full bg-blue-800 rounded-full h-1.5 mt-2 relative z-10">
+                        <div class="bg-green-400 h-1.5 rounded-full" id="dash-progreso-barra" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Estatus de Rutas -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                <h3 class="text-xs font-bold text-slate-800 uppercase mb-3 border-b pb-2"><i class="fa-solid fa-bars-progress mr-1"></i> Estatus de Trayectos</h3>
+                <div class="grid grid-cols-3 gap-2 text-center">
+                    <div class="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                        <p class="text-xl font-black text-slate-600" id="dash-rutas-pend">0</p>
+                        <p class="text-[9px] font-bold text-slate-400 uppercase mt-1">Pendientes</p>
+                    </div>
+                    <div class="bg-amber-50 p-2 rounded-lg border border-amber-100">
+                        <p class="text-xl font-black text-amber-600" id="dash-rutas-avan">0</p>
+                        <p class="text-[9px] font-bold text-amber-500 uppercase mt-1">En Avance</p>
+                    </div>
+                    <div class="bg-green-50 p-2 rounded-lg border border-green-100">
+                        <p class="text-xl font-black text-green-600" id="dash-rutas-comp">0</p>
+                        <p class="text-[9px] font-bold text-green-500 uppercase mt-1">Completados</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resumen de Pintura: Requerida vs Gastada -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                <h3 class="text-xs font-bold text-slate-800 uppercase mb-3 border-b pb-2"><i class="fa-solid fa-fill-drip mr-1 text-blue-500"></i> Pintura: Requerida vs Gastada (Galones)</h3>
+                
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="font-bold flex items-center w-20"><span class="w-3 h-3 rounded-full bg-blue-800 mr-2"></span> Azul</span>
+                        <div class="flex-1 mx-3 bg-slate-100 rounded-full h-4 relative overflow-hidden">
+                            <div class="absolute top-0 left-0 h-full bg-blue-200" id="bar-req-azul" style="width: 100%"></div>
+                            <div class="absolute top-0 left-0 h-full bg-blue-600" id="bar-gas-azul" style="width: 0%"></div>
+                        </div>
+                        <span class="font-mono font-bold text-slate-600 text-[10px] w-16 text-right"><span id="txt-gas-azul">0</span> / <span id="txt-req-azul">0</span></span>
+                    </div>
+
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="font-bold flex items-center w-20"><span class="w-3 h-3 rounded-full bg-orange-500 mr-2"></span> Naranja</span>
+                        <div class="flex-1 mx-3 bg-slate-100 rounded-full h-4 relative overflow-hidden">
+                            <div class="absolute top-0 left-0 h-full bg-orange-200" id="bar-req-naranja" style="width: 100%"></div>
+                            <div class="absolute top-0 left-0 h-full bg-orange-500" id="bar-gas-naranja" style="width: 0%"></div>
+                        </div>
+                        <span class="font-mono font-bold text-slate-600 text-[10px] w-16 text-right"><span id="txt-gas-naranja">0</span> / <span id="txt-req-naranja">0</span></span>
+                    </div>
+
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="font-bold flex items-center w-20"><span class="w-3 h-3 rounded-full bg-slate-400 mr-2"></span> Aluminio</span>
+                        <div class="flex-1 mx-3 bg-slate-100 rounded-full h-4 relative overflow-hidden">
+                            <div class="absolute top-0 left-0 h-full bg-slate-200" id="bar-req-alum" style="width: 100%"></div>
+                            <div class="absolute top-0 left-0 h-full bg-slate-500" id="bar-gas-alum" style="width: 0%"></div>
+                        </div>
+                        <span class="font-mono font-bold text-slate-600 text-[10px] w-16 text-right"><span id="txt-gas-alum">0</span> / <span id="txt-req-alum">0</span></span>
+                    </div>
+
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="font-bold flex items-center w-20"><span class="w-3 h-3 rounded-full bg-gray-900 mr-2"></span> Negro</span>
+                        <div class="flex-1 mx-3 bg-slate-100 rounded-full h-4 relative overflow-hidden">
+                            <div class="absolute top-0 left-0 h-full bg-gray-300" id="bar-req-negro" style="width: 100%"></div>
+                            <div class="absolute top-0 left-0 h-full bg-gray-800" id="bar-gas-negro" style="width: 0%"></div>
+                        </div>
+                        <span class="font-mono font-bold text-slate-600 text-[10px] w-16 text-right"><span id="txt-gas-negro">0</span> / <span id="txt-req-negro">0</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- PESTAÑA 2: INVENTARIO (ALMACÉN) -->
+        <!-- ========================================== -->
+        <div id="vista-inventario" class="space-y-4 fade-in hidden">
+            
+            <div class="flex justify-between items-center mb-2">
+                <h2 class="text-lg font-black text-slate-800"><i class="fa-solid fa-warehouse text-blue-500 mr-1"></i> Stock de Pintura</h2>
+                <div class="flex gap-2">
+                    <button onclick="togglePanelInv('ingreso')" class="bg-emerald-600 active:scale-95 text-white text-xs font-bold py-2 px-3 rounded-lg shadow-sm"><i class="fa-solid fa-plus mr-1"></i> Ingreso</button>
+                    <button onclick="togglePanelInv('egreso')" class="bg-red-600 active:scale-95 text-white text-xs font-bold py-2 px-3 rounded-lg shadow-sm"><i class="fa-solid fa-minus mr-1"></i> Retiro</button>
+                </div>
+            </div>
+
+            <button onclick="generarPDFInventario()" class="w-full active:scale-95 bg-slate-900 hover:bg-black text-white font-bold py-3 px-4 rounded-xl shadow-md transition-transform flex items-center justify-center mb-3">
+                <i class="fa-solid fa-file-invoice mr-2 text-emerald-400 text-lg"></i> Exportar Auditoría de Almacén PDF
+            </button>
+
+            <!-- Panel Oculto Ingreso -->
+            <div id="panel-ingreso-inv" class="hidden bg-white border border-slate-200 rounded-xl p-4 shadow-sm fade-in mb-3">
+                <h3 class="font-bold text-slate-700 mb-3 text-xs uppercase"><i class="fa-solid fa-truck-loading mr-1 text-emerald-600"></i> Recepción de Galones</h3>
+                
+                <div class="mb-3">
+                    <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Fecha de Recepción</label>
+                    <input type="date" id="ing-fecha" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 outline-none focus:border-blue-400">
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 items-end">
+                    <div><label class="block text-[10px] font-bold text-slate-500 mb-1">AZUL</label><input type="number" id="ing-az" min="0" value="0" class="w-full px-2 py-2 border rounded-lg text-center font-bold focus:ring-2 focus:ring-blue-500 outline-none"></div>
+                    <div><label class="block text-[10px] font-bold text-slate-500 mb-1">NARANJA</label><input type="number" id="ing-na" min="0" value="0" class="w-full px-2 py-2 border rounded-lg text-center font-bold focus:ring-2 focus:ring-blue-500 outline-none"></div>
+                    <div><label class="block text-[10px] font-bold text-slate-500 mb-1">ALUMINIO</label><input type="number" id="ing-al" min="0" value="0" class="w-full px-2 py-2 border rounded-lg text-center font-bold focus:ring-2 focus:ring-blue-500 outline-none"></div>
+                    <div><label class="block text-[10px] font-bold text-slate-500 mb-1">NEGRO</label><input type="number" id="ing-ne" min="0" value="0" class="w-full px-2 py-2 border rounded-lg text-center font-bold focus:ring-2 focus:ring-blue-500 outline-none"></div>
+                    <div class="col-span-2 sm:col-span-1"><button onclick="registrarIngreso()" class="w-full active:scale-95 bg-slate-800 text-white font-bold py-2.5 rounded-lg"><i class="fa-solid fa-check"></i></button></div>
+                </div>
+            </div>
+
+            <!-- Panel Oculto Egreso -->
+            <div id="panel-egreso-inv" class="hidden bg-white border border-slate-200 rounded-xl p-4 shadow-sm fade-in mb-3">
+                <h3 class="font-bold text-slate-700 mb-3 text-xs uppercase"><i class="fa-solid fa-right-from-bracket mr-1 text-red-600"></i> Retiro Manual / Extraordinario</h3>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Fecha de Retiro</label>
+                        <input type="date" id="egr-fecha" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 outline-none focus:border-red-400">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Motivo / Destino</label>
+                        <input type="text" id="egr-motivo" placeholder="Ej. Otra cuadrilla, donación..." class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 outline-none focus:border-red-400">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 items-end">
+                    <div><label class="block text-[10px] font-bold text-slate-500 mb-1">AZUL</label><input type="number" id="egr-az" min="0" value="0" class="w-full px-2 py-2 border rounded-lg text-center font-bold focus:ring-2 focus:ring-red-500 outline-none"></div>
+                    <div><label class="block text-[10px] font-bold text-slate-500 mb-1">NARANJA</label><input type="number" id="egr-na" min="0" value="0" class="w-full px-2 py-2 border rounded-lg text-center font-bold focus:ring-2 focus:ring-red-500 outline-none"></div>
+                    <div><label class="block text-[10px] font-bold text-slate-500 mb-1">ALUMINIO</label><input type="number" id="egr-al" min="0" value="0" class="w-full px-2 py-2 border rounded-lg text-center font-bold focus:ring-2 focus:ring-red-500 outline-none"></div>
+                    <div><label class="block text-[10px] font-bold text-slate-500 mb-1">NEGRO</label><input type="number" id="egr-ne" min="0" value="0" class="w-full px-2 py-2 border rounded-lg text-center font-bold focus:ring-2 focus:ring-red-500 outline-none"></div>
+                    <div class="col-span-2 sm:col-span-1"><button onclick="registrarEgreso()" class="w-full active:scale-95 bg-slate-800 text-white font-bold py-2.5 rounded-lg"><i class="fa-solid fa-check"></i></button></div>
+                </div>
+            </div>
+
+            <!-- Tarjetas de Stock -->
+            <div class="grid grid-cols-2 gap-3">
+                <div class="rounded-xl shadow-sm p-4 badge-azul flex flex-col justify-between"><div class="flex justify-between"><span class="font-bold text-xs">Azul Profundo</span><i class="fa-solid fa-droplet opacity-40"></i></div><div class="mt-2 text-3xl font-black" id="inv-azul">0</div></div>
+                <div class="rounded-xl shadow-sm p-4 badge-naranja flex flex-col justify-between"><div class="flex justify-between"><span class="font-bold text-xs">Naranja</span><i class="fa-solid fa-droplet opacity-40"></i></div><div class="mt-2 text-3xl font-black" id="inv-naranja">0</div></div>
+                <div class="rounded-xl shadow-sm p-4 badge-alum flex flex-col justify-between"><div class="flex justify-between"><span class="font-bold text-xs">Aluminio</span><i class="fa-solid fa-droplet opacity-40"></i></div><div class="mt-2 text-3xl font-black" id="inv-alum">0</div></div>
+                <div class="rounded-xl shadow-sm p-4 badge-negro flex flex-col justify-between"><div class="flex justify-between"><span class="font-bold text-xs">Negro</span><i class="fa-solid fa-droplet opacity-40"></i></div><div class="mt-2 text-3xl font-black" id="inv-negro">0</div></div>
+            </div>
+
+            <!-- Historial de Movimientos -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 mt-4 overflow-hidden">
+                <div class="p-3 border-b border-slate-100 bg-slate-50"><h3 class="text-xs font-bold text-slate-700 uppercase"><i class="fa-solid fa-clock-rotate-left mr-1"></i> Movimientos Recientes</h3></div>
+                <div class="max-h-64 overflow-y-auto">
+                    <ul id="lista-movimientos" class="divide-y divide-slate-100 text-xs">
+                        <!-- Llenado por JS -->
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- PESTAÑA 3: DIAGNÓSTICO (NUEVO TRAYECTO) -->
+        <!-- ========================================== -->
+        <div id="vista-diagnostico" class="space-y-4 fade-in hidden">
+            
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                <h2 class="text-sm font-bold mb-3 text-slate-800 border-b pb-2"><i class="fa-solid fa-route mr-1 text-blue-500"></i> Registrar Nuevo Trayecto</h2>
+                
+                <div class="space-y-3 mb-4">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Fecha</label>
+                        <input type="date" id="diag-fecha" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 outline-none focus:border-blue-400">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Nombre de la Vía / Tramo</label>
+                        <input type="text" id="diag-nombre" placeholder="Ej. Av. Francisco de Miranda" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 outline-none focus:border-blue-400">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Zona</label>
+                        <select id="diag-zona" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 outline-none focus:border-blue-400">
+                            <option value="Autopista">Autopista</option>
+                            <option value="Carretera Nacional">Carretera Nacional</option>
+                            <option value="Avenidas Principales">Avenidas Principales</option>
+                            <option value="Espacio Estratégico">Espacio Estratégico</option>
+                        </select>
+                    </div>
+                </div>
+
+                <h3 class="text-xs font-bold text-slate-700 uppercase mb-2 border-b pb-1"><i class="fa-solid fa-binoculars mr-1"></i> Postes Detectados (Físico)</h3>
+                
+                <!-- Campos de Conteo Físico -->
+                <div class="space-y-2 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Baja Tensión (9m)</p>
+                    <div class="flex justify-between items-center"><span class="text-xs font-semibold text-slate-700">Mixto (Negro/Aluminio)</span> <input type="number" id="d-bt-mix" min="0" value="0" class="w-16 px-2 py-1 border rounded text-center font-bold text-sm"></div>
+                </div>
+
+                <div class="space-y-2 bg-blue-50 p-3 rounded-lg border border-blue-100 mt-2">
+                    <p class="text-[10px] font-bold text-blue-400 uppercase mb-1">Alumbrado Calles/Avenidas (8m)</p>
+                    <div class="flex justify-between items-center"><span class="text-xs font-semibold text-slate-700">Completos (100% Azul)</span> <input type="number" id="d-al8-comp" min="0" value="0" class="w-16 px-2 py-1 border rounded text-center font-bold text-sm"></div>
+                    <div class="flex justify-between items-center"><span class="text-xs font-semibold text-slate-700">Mixtos (Azul/Naranja)</span> <input type="number" id="d-al8-mix" min="0" value="0" class="w-16 px-2 py-1 border rounded text-center font-bold text-sm"></div>
+                </div>
+
+                <div class="space-y-2 bg-slate-100 p-3 rounded-lg border border-slate-200 mt-2">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Alumbrado Autopistas (12m)</p>
+                    <div class="flex justify-between items-center"><span class="text-xs font-semibold text-slate-700">Completos (100% Aluminio)</span> <input type="number" id="d-al12-comp" min="0" value="0" class="w-16 px-2 py-1 border rounded text-center font-bold text-sm"></div>
+                    <div class="flex justify-between items-center"><span class="text-xs font-semibold text-slate-700">Mixtos (Azul/Naranja)</span> <input type="number" id="d-al12-mix" min="0" value="0" class="w-16 px-2 py-1 border rounded text-center font-bold text-sm"></div>
+                </div>
+
+                <button onclick="guardarDiagnostico()" class="w-full mt-4 active:scale-95 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition-transform flex justify-center items-center">
+                    <i class="fa-solid fa-save mr-2"></i> Guardar Diagnóstico
+                </button>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- PESTAÑA 4: EJECUCIÓN (JORNADAS LABORALES) -->
+        <!-- ========================================== -->
+        <div id="vista-ejecucion" class="space-y-4 fade-in hidden">
+            
+            <div class="bg-blue-900 rounded-xl p-4 text-white shadow-md">
+                <h2 class="text-sm font-bold mb-1"><i class="fa-solid fa-helmet-safety mr-1 text-amber-400"></i> Control de Obras</h2>
+                <p class="text-[10px] text-blue-200">Selecciona un trayecto para registrar el avance del día y descontar pintura.</p>
+            </div>
+
+            <!-- Lista de Rutas para Ejecutar -->
+            <div id="contenedor-rutas-ejecucion" class="space-y-3">
+                <!-- Se llena con JS. Estructura de tarjetas desplegables -->
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Modal Registro Jornada -->
+    <div id="modal-jornada" class="hidden fixed inset-0 bg-slate-900 bg-opacity-75 z-50 flex items-center justify-center p-4 fade-in">
+        <div class="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="bg-blue-600 p-4 text-white flex justify-between items-center">
+                <div>
+                    <h3 class="font-black text-sm">Registrar Avance Diario</h3>
+                    <p id="modal-ruta-nombre" class="text-[10px] text-blue-200 uppercase font-bold truncate w-64"></p>
+                </div>
+                <button onclick="cerrarModalJornada()" class="text-white opacity-70 hover:opacity-100 text-xl"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="p-4 overflow-y-auto flex-1">
+                <input type="hidden" id="modal-ruta-id">
+                <div class="mb-4">
+                    <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Fecha de Jornada</label>
+                    <input type="date" id="jor-fecha" class="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:border-blue-400">
+                </div>
+
+                <h4 class="text-[10px] font-black text-slate-700 border-b pb-1 mb-2 uppercase">¿Cuántos postes se pintaron hoy?</h4>
+                
+                <div id="modal-inputs-container" class="space-y-2">
+                    <!-- Se inyectan inputs dinámicamente según lo que falte de la ruta -->
+                </div>
+
+                <!-- Proyección de Gasto en Tiempo Real -->
+                <div class="mt-4 bg-slate-100 rounded-lg p-3 border border-slate-200">
+                    <p class="text-[9px] font-bold text-slate-500 uppercase mb-2 text-center">Gasto Calculado vs Inventario</p>
+                    <div class="grid grid-cols-4 gap-1 text-center">
+                        <div><p class="text-[8px] font-bold text-blue-900">AZUL</p><p id="calc-az" class="text-xs font-black text-blue-600">0</p></div>
+                        <div><p class="text-[8px] font-bold text-orange-900">NJA</p><p id="calc-na" class="text-xs font-black text-orange-600">0</p></div>
+                        <div><p class="text-[8px] font-bold text-slate-700">ALUM</p><p id="calc-al" class="text-xs font-black text-slate-600">0</p></div>
+                        <div><p class="text-[8px] font-bold text-gray-900">NGR</p><p id="calc-ne" class="text-xs font-black text-gray-700">0</p></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 border-t bg-slate-50 flex gap-2">
+                <button onclick="cerrarModalJornada()" class="flex-1 py-3 text-slate-500 font-bold text-sm bg-white border border-slate-200 rounded-xl">Cancelar</button>
+                <button onclick="procesarJornada()" class="flex-1 py-3 text-white font-bold text-sm bg-green-600 active:scale-95 transition-transform rounded-xl shadow-md"><i class="fa-solid fa-check mr-1"></i> Cargar Avance</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // === CONFIGURACIÓN Y ESTADO GLOBAL ===
+        const DB_KEY = 'sistema_postes_erp';
+        const REND = { base_mixto: 1/8, resto_mixto: 1/4, completo: 1/3 };
+        
+        let db = {
+            inventario: { azul: 0, naranja: 0, aluminio: 0, negro: 0 },
+            rutas: [],
+            movimientos: [] // Historial de entradas/salidas de almacén
+        };
+
+        // Utilidades UI
+        function mostrarAlerta(msg, err=false) {
+            const a = document.getElementById('alert-box');
+            a.innerHTML = `<i class="fa-solid ${err ? 'fa-triangle-exclamation' : 'fa-circle-check'} mr-2"></i> ${msg}`;
+            a.className = `fixed top-5 left-1/2 transform -translate-x-1/2 w-[90%] max-w-sm p-4 rounded-xl shadow-2xl z-[100] text-white text-center font-bold text-sm transition-all duration-300 ${err ? 'bg-red-600' : 'bg-emerald-600'}`;
+            a.classList.remove('hidden', '-translate-y-20', 'opacity-0');
+            setTimeout(() => { a.classList.add('-translate-y-20', 'opacity-0'); setTimeout(()=>a.classList.add('hidden'),300); }, 3500);
+        }
+
+        function cambiarPestana(pestana) {
+            ['dashboard', 'inventario', 'diagnostico', 'ejecucion'].forEach(p => {
+                document.getElementById(`vista-${p}`).classList.add('hidden');
+                document.getElementById(`btn-tab-${p}`).className = "flex-1 py-3 px-3 tab-inactiva whitespace-nowrap transition-all";
+            });
+            document.getElementById(`vista-${pestana}`).classList.remove('hidden');
+            document.getElementById(`btn-tab-${pestana}`).className = "flex-1 py-3 px-3 tab-activa whitespace-nowrap transition-all";
+            window.scrollTo({top:0, behavior:'smooth'});
+            actualizarUI();
+        }
+
+        // === MOTOR DE BASE DE DATOS LOCAL ===
+        function cargarDB() {
+            const data = localStorage.getItem(DB_KEY);
+            if (data) {
+                try { db = JSON.parse(data); } catch(e) { console.error("Error BD", e); }
+            }
+            const today = new Date().toISOString().split('T')[0];
+            
+            // Asignación segura con validación para evitar errores nulos
+            const camposFechas = ['diag-fecha', 'jor-fecha', 'ing-fecha', 'egr-fecha'];
+            camposFechas.forEach(id => {
+                const elemento = document.getElementById(id);
+                if (elemento) {
+                    elemento.value = today;
+                }
+            });
+            
+            actualizarUI();
+        }
+
+        function guardarDB() {
+            localStorage.setItem(DB_KEY, JSON.stringify(db));
+            actualizarUI();
+        }
+
+        // === LÓGICA DE INVENTARIO ===
+        function togglePanelInv(tipo) {
+            const pIng = document.getElementById('panel-ingreso-inv');
+            const pEgr = document.getElementById('panel-egreso-inv');
+            
+            if(tipo === 'ingreso') {
+                if (pIng) pIng.classList.toggle('hidden'); 
+                if (pEgr) pEgr.classList.add('hidden');
+            } else {
+                if (pEgr) pEgr.classList.toggle('hidden'); 
+                if (pIng) pIng.classList.add('hidden');
+            }
+        }
+
+        function registrarIngreso() {
+            const f = document.getElementById('ing-fecha').value;
+            // Convertimos a entero (galones exactos)
+            const az = parseInt(document.getElementById('ing-az').value)||0;
+            const na = parseInt(document.getElementById('ing-na').value)||0;
+            const al = parseInt(document.getElementById('ing-al').value)||0;
+            const ne = parseInt(document.getElementById('ing-ne').value)||0;
+
+            if(!f) return mostrarAlerta("Indique la fecha de recepción", true);
+            if(az+na+al+ne === 0) return mostrarAlerta("Ingrese cantidades válidas", true);
+
+            db.inventario.azul += az; db.inventario.naranja += na; db.inventario.aluminio += al; db.inventario.negro += ne;
+            
+            db.movimientos.unshift({
+                id: Date.now().toString(),
+                fecha: f,
+                tipo: 'ingreso',
+                desc: 'Recepción en Almacén',
+                gal: { az, na, al, ne }
+            });
+
+            // Limpiar
+            ['az','na','al','ne'].forEach(c=>document.getElementById(`ing-${c}`).value=0);
+            document.getElementById('panel-ingreso-inv').classList.add('hidden');
+            guardarDB();
+            mostrarAlerta("Ingreso registrado");
+        }
+
+        function registrarEgreso() {
+            const f = document.getElementById('egr-fecha').value;
+            const mot = document.getElementById('egr-motivo').value.trim() || 'Retiro manual / Extraordinario';
+            const az = parseInt(document.getElementById('egr-az').value)||0;
+            const na = parseInt(document.getElementById('egr-na').value)||0;
+            const al = parseInt(document.getElementById('egr-al').value)||0;
+            const ne = parseInt(document.getElementById('egr-ne').value)||0;
+
+            if(!f) return mostrarAlerta("Indique la fecha de retiro", true);
+            if(az+na+al+ne === 0) return mostrarAlerta("Ingrese cantidades válidas", true);
+
+            // Validar stock físico
+            if(az > db.inventario.azul || na > db.inventario.naranja || al > db.inventario.aluminio || ne > db.inventario.negro) {
+                return mostrarAlerta("Stock insuficiente para este retiro", true);
+            }
+
+            db.inventario.azul -= az; db.inventario.naranja -= na; db.inventario.aluminio -= al; db.inventario.negro -= ne;
+            
+            db.movimientos.unshift({
+                id: Date.now().toString(),
+                fecha: f,
+                tipo: 'retiro_manual',
+                desc: `Salida extra: ${mot}`,
+                gal: { az, na, al, ne }
+            });
+
+            // Limpiar
+            ['az','na','al','ne'].forEach(c=>document.getElementById(`egr-${c}`).value=0);
+            document.getElementById('egr-motivo').value = '';
+            document.getElementById('panel-egreso-inv').classList.add('hidden');
+            guardarDB();
+            mostrarAlerta("Retiro extraordinario registrado");
+        }
+
+        // === LÓGICA DE DIAGNÓSTICO (RUTAS) ===
+        function guardarDiagnostico() {
+            const f = document.getElementById('diag-fecha').value;
+            const nombre = document.getElementById('diag-nombre').value.trim();
+            const zona = document.getElementById('diag-zona').value;
+            
+            const bt_mix = parseInt(document.getElementById('d-bt-mix').value)||0;
+            const al8_comp = parseInt(document.getElementById('d-al8-comp').value)||0;
+            const al8_mix = parseInt(document.getElementById('d-al8-mix').value)||0;
+            const al12_comp = parseInt(document.getElementById('d-al12-comp').value)||0;
+            const al12_mix = parseInt(document.getElementById('d-al12-mix').value)||0;
+
+            if(!f || !nombre) return mostrarAlerta("Complete fecha y nombre", true);
+            if(bt_mix+al8_comp+al8_mix+al12_comp+al12_mix === 0) return mostrarAlerta("Agregue al menos 1 poste", true);
+
+            const nuevaRuta = {
+                id: 'R-' + Date.now().toString(),
+                fecha_reg: f,
+                nombre, zona,
+                estado: 'Pendiente', // Pendiente, En Avance, Completado
+                diag: { bt_mix, al8_comp, al8_mix, al12_comp, al12_mix },
+                avan: { bt_mix:0, al8_comp:0, al8_mix:0, al12_comp:0, al12_mix:0 },
+                historial: []
+            };
+
+            db.rutas.unshift(nuevaRuta);
+            
+            // Limpiar formulario
+            document.getElementById('diag-nombre').value = "";
+            ['bt-mix','al8-comp','al8-mix','al12-comp','al12-mix'].forEach(id => document.getElementById(`d-${id}`).value = "0");
+            
+            guardarDB();
+            mostrarAlerta("Ruta diagnosticada y creada");
+            cambiarPestana('ejecucion');
+        }
+
+        // === CALCULADORA CORE (CON REDONDEO LOGÍSTICO) ===
+        // Devuelve objeto {az, na, al, ne} en números enteros exactos
+        function calcularPintura(conteos) {
+            let req = { az: 0, na: 0, al: 0, ne: 0 };
+            if(!conteos) return req;
+            
+            // Cálculos con decimales
+            req.ne += (conteos.bt_mix || 0) * REND.base_mixto;
+            req.al += (conteos.bt_mix || 0) * REND.resto_mixto;
+            
+            req.az += (conteos.al8_comp || 0) * REND.completo;
+            req.az += (conteos.al8_mix || 0) * REND.base_mixto;
+            req.na += (conteos.al8_mix || 0) * REND.resto_mixto;
+            
+            req.al += (conteos.al12_comp || 0) * REND.completo;
+            req.az += (conteos.al12_mix || 0) * REND.base_mixto;
+            req.na += (conteos.al12_mix || 0) * REND.resto_mixto;
+
+            // REDONDEO AL ENTERO SUPERIOR (Ej: 1.1 galones -> 2 galones)
+            req.az = Math.ceil(req.az);
+            req.na = Math.ceil(req.na);
+            req.al = Math.ceil(req.al);
+            req.ne = Math.ceil(req.ne);
+
+            return req;
+        }
+
+        // === LÓGICA DE EJECUCIÓN (AVANCE DIARIO) ===
+        function abrirModalJornada(rutaId) {
+            const ruta = db.rutas.find(r => r.id === rutaId);
+            if(!ruta) return;
+
+            document.getElementById('modal-ruta-id').value = rutaId;
+            document.getElementById('modal-ruta-nombre').innerText = ruta.nombre;
+            
+            const cont = document.getElementById('modal-inputs-container');
+            cont.innerHTML = '';
+            
+            // Helper para crear inputs solo si faltan postes
+            const addInput = (idCode, label, diagVal, avanVal, colorClass) => {
+                const faltan = diagVal - avanVal;
+                if(faltan > 0) {
+                    cont.innerHTML += `
+                        <div class="flex items-center justify-between bg-white border border-slate-200 p-2 rounded-lg">
+                            <div><p class="text-[10px] font-bold ${colorClass}">${label}</p><p class="text-[9px] text-slate-400">Faltan: ${faltan}</p></div>
+                            <input type="number" id="jor-${idCode}" min="0" max="${faltan}" value="0" oninput="simularGasto()" class="w-16 p-1 border rounded text-center text-sm font-bold bg-slate-50 focus:bg-white">
+                        </div>`;
+                }
+            };
+
+            addInput('bt_mix', 'B.T. 9m (Mixto)', ruta.diag.bt_mix, ruta.avan.bt_mix, 'text-gray-800');
+            addInput('al8_comp', 'Alum. 8m (Azul Comp)', ruta.diag.al8_comp, ruta.avan.al8_comp, 'text-blue-700');
+            addInput('al8_mix', 'Alum. 8m (Mixto)', ruta.diag.al8_mix, ruta.avan.al8_mix, 'text-blue-500');
+            addInput('al12_comp', 'Autop. 12m (Alum Comp)', ruta.diag.al12_comp, ruta.avan.al12_comp, 'text-slate-600');
+            addInput('al12_mix', 'Autop. 12m (Mixto)', ruta.diag.al12_mix, ruta.avan.al12_mix, 'text-slate-500');
+
+            if(cont.innerHTML === '') cont.innerHTML = '<p class="text-xs text-center text-green-600 font-bold py-4">¡Este trayecto ya está 100% pintado!</p>';
+
+            simularGasto(); // Reset a 0
+            document.getElementById('modal-jornada').classList.remove('hidden');
+        }
+
+        function cerrarModalJornada() { document.getElementById('modal-jornada').classList.add('hidden'); }
+
+        function simularGasto() {
+            const getV = (id) => { const el = document.getElementById(`jor-${id}`); return el ? (parseInt(el.value)||0) : 0; };
+            const inputConteos = {
+                bt_mix: getV('bt_mix'), al8_comp: getV('al8_comp'), al8_mix: getV('al8_mix'),
+                al12_comp: getV('al12_comp'), al12_mix: getV('al12_mix')
+            };
+            const req = calcularPintura(inputConteos);
+            
+            ['az','na','al','ne'].forEach(c => {
+                const el = document.getElementById(`calc-${c}`);
+                const val = req[c];
+                if(el) {
+                    el.innerText = val.toFixed(0); // Mostrar sin decimales
+                    // Si excede stock, se pone rojo
+                    if(val > db.inventario[c === 'az' ? 'azul' : c === 'na' ? 'naranja' : c === 'al' ? 'aluminio' : 'negro']) {
+                        el.classList.add('text-red-600'); el.classList.remove(`text-${c==='az'?'blue':c==='na'?'orange':c==='al'?'slate':'gray'}-600`);
+                    } else {
+                        el.classList.remove('text-red-600'); el.classList.add(`text-${c==='az'?'blue':c==='na'?'orange':c==='al'?'slate':'gray'}-600`);
+                    }
+                }
+            });
+            return { req, inputConteos };
+        }
+
+        function procesarJornada() {
+            const rutaId = document.getElementById('modal-ruta-id').value;
+            const ruta = db.rutas.find(r => r.id === rutaId);
+            const f = document.getElementById('jor-fecha').value;
+            if(!ruta || !f) return;
+
+            const sim = simularGasto();
+            const r = sim.req; const inp = sim.inputConteos;
+            const tPintados = inp.bt_mix+inp.al8_comp+inp.al8_mix+inp.al12_comp+inp.al12_mix;
+            if(tPintados === 0) return mostrarAlerta("No indicó postes pintados", true);
+
+            // Validar Stock
+            if(r.az > db.inventario.azul || r.na > db.inventario.naranja || r.al > db.inventario.aluminio || r.ne > db.inventario.negro) {
+                return mostrarAlerta("Stock insuficiente para esta jornada", true);
+            }
+
+            // Aplicar Descuento de Inventario
+            db.inventario.azul -= r.az; db.inventario.naranja -= r.na; db.inventario.aluminio -= r.al; db.inventario.negro -= r.ne;
+            db.movimientos.unshift({
+                id: Date.now().toString(), fecha: f, tipo: 'retiro', desc: `Trabajo en: ${ruta.nombre}`, gal: r
+            });
+
+            // Aplicar Avance en Ruta
+            Object.keys(inp).forEach(k => ruta.avan[k] += inp[k]);
+            ruta.historial.unshift({ fecha: f, postes: tPintados, gasto: r });
+
+            // Revisar Estatus
+            const d = ruta.diag; const a = ruta.avan;
+            const faltanTotal = (d.bt_mix-a.bt_mix)+(d.al8_comp-a.al8_comp)+(d.al8_mix-a.al8_mix)+(d.al12_comp-a.al12_comp)+(d.al12_mix-a.al12_mix);
+            
+            if(faltanTotal === 0) ruta.estado = 'Completado';
+            else ruta.estado = 'En Avance';
+
+            cerrarModalJornada();
+            guardarDB();
+            mostrarAlerta(`Jornada guardada. Se descontaron ${(r.az+r.na+r.al+r.ne).toFixed(0)} galones.`);
+        }
+
+        // === RENDERIZADO DE INTERFAZ GLOBAL ===
+        function actualizarUI() {
+            // -- TAB INVENTARIO (Sin decimales) --
+            document.getElementById('inv-azul').innerText = db.inventario.azul.toFixed(0);
+            document.getElementById('inv-naranja').innerText = db.inventario.naranja.toFixed(0);
+            document.getElementById('inv-alum').innerText = db.inventario.aluminio.toFixed(0);
+            document.getElementById('inv-negro').innerText = db.inventario.negro.toFixed(0);
+
+            const ulMovs = document.getElementById('lista-movimientos');
+            ulMovs.innerHTML = '';
+            db.movimientos.slice(0, 50).forEach(m => {
+                const isIng = m.tipo === 'ingreso';
+                const isRetMan = m.tipo === 'retiro_manual';
+                
+                const iconCls = isIng ? 'fa-arrow-down text-emerald-500' : (isRetMan ? 'fa-arrow-up text-red-500' : 'fa-arrow-up text-amber-500');
+                const txtColor = isIng ? 'text-emerald-700' : (isRetMan ? 'text-red-600' : 'text-slate-600');
+
+                ulMovs.innerHTML += `
+                    <li class="p-3 flex justify-between items-center hover:bg-slate-50">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid ${iconCls}"></i>
+                            <div><p class="font-bold text-slate-700 truncate w-32 sm:w-48">${m.desc}</p><p class="text-[9px] text-slate-400">${m.fecha}</p></div>
+                        </div>
+                        <div class="text-right font-mono text-[9px] font-bold ${txtColor}">
+                            ${isIng?'+':'-'}${m.gal.az.toFixed(0)}Az | ${isIng?'+':'-'}${m.gal.na.toFixed(0)}Na<br>
+                            ${isIng?'+':'-'}${m.gal.al.toFixed(0)}Al | ${isIng?'+':'-'}${m.gal.ne.toFixed(0)}Ne
+                        </div>
+                    </li>`;
+            });
+            if(db.movimientos.length===0) ulMovs.innerHTML = '<li class="p-4 text-center text-slate-400 italic">Sin movimientos</li>';
+
+            // -- TAB EJECUCIÓN (RUTAS) --
+            const contRutas = document.getElementById('contenedor-rutas-ejecucion');
+            contRutas.innerHTML = '';
+            db.rutas.forEach(r => {
+                const totalD = Object.values(r.diag).reduce((a,b)=>a+b, 0);
+                const totalA = Object.values(r.avan).reduce((a,b)=>a+b, 0);
+                const pct = totalD === 0 ? 0 : Math.round((totalA/totalD)*100);
+                const isComp = r.estado === 'Completado';
+                const estatusColor = isComp ? 'text-green-600 bg-green-100' : (r.estado === 'En Avance' ? 'text-amber-600 bg-amber-100' : 'text-slate-600 bg-slate-200');
+
+                let btnHtml = isComp 
+                    ? `<div class="mt-3 bg-green-50 text-green-700 text-center py-2 rounded-lg text-[10px] font-bold uppercase"><i class="fa-solid fa-check-double mr-1"></i> Terminado</div>`
+                    : `<button onclick="abrirModalJornada('${r.id}')" class="mt-3 w-full bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 py-2 rounded-lg text-[10px] font-bold uppercase transition-colors"><i class="fa-solid fa-plus-circle mr-1"></i> Registrar Avance Diario</button>`;
+
+                contRutas.innerHTML += `
+                    <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm relative overflow-hidden">
+                        ${isComp ? '<div class="absolute -right-6 top-4 bg-green-500 text-white text-[8px] font-black uppercase py-1 px-8 rotate-45">100%</div>' : ''}
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-sm">${r.nombre}</h3>
+                                <p class="text-[9px] uppercase font-bold text-slate-400">${r.zona}</p>
+                            </div>
+                            <span class="text-[9px] font-black px-2 py-0.5 rounded uppercase ${estatusColor}">${r.estado}</span>
+                        </div>
+                        <div class="flex items-center gap-2 mt-2">
+                            <div class="w-full bg-slate-100 rounded-full h-2"><div class="bg-blue-500 h-2 rounded-full transition-all" style="width: ${pct}%"></div></div>
+                            <span class="text-xs font-black text-slate-600 w-12 text-right">${totalA}/${totalD}</span>
+                        </div>
+                        ${btnHtml}
+                    </div>`;
+            });
+            if(db.rutas.length===0) contRutas.innerHTML = '<div class="text-center p-6 text-slate-400 text-xs italic">No hay rutas registradas. Vaya a Diagnóstico.</div>';
+
+            // -- TAB DASHBOARD (CÁLCULOS GLOBALES) --
+            let gDiag = 0, gAvan = 0;
+            let gDiagBT = 0, gDiagAl = 0;
+            let gAvanBT = 0, gAvanAl = 0;
+            let est = { pend: 0, avan: 0, comp: 0 };
+            let reqGlo = { az:0, na:0, al:0, ne:0 };
+            let gasGlo = { az:0, na:0, al:0, ne:0 };
+
+            db.rutas.forEach(r => {
+                gDiag += Object.values(r.diag).reduce((a,b)=>a+b, 0);
+                gAvan += Object.values(r.avan).reduce((a,b)=>a+b, 0);
+                
+                // Desgloses por tipo
+                gDiagBT += r.diag.bt_mix || 0;
+                gDiagAl += (r.diag.al8_comp||0) + (r.diag.al8_mix||0) + (r.diag.al12_comp||0) + (r.diag.al12_mix||0);
+                
+                gAvanBT += r.avan.bt_mix || 0;
+                gAvanAl += (r.avan.al8_comp||0) + (r.avan.al8_mix||0) + (r.avan.al12_comp||0) + (r.avan.al12_mix||0);
+                
+                if(r.estado === 'Pendiente') est.pend++;
+                else if(r.estado === 'En Avance') est.avan++;
+                else est.comp++;
+
+                // Requermientos y Gastos Reales
+                const rReq = calcularPintura(r.diag);
+                const rGas = calcularPintura(r.avan); // Gasto exacto de lo pintado
+                reqGlo.az+=rReq.az; reqGlo.na+=rReq.na; reqGlo.al+=rReq.al; reqGlo.ne+=rReq.ne;
+                gasGlo.az+=rGas.az; gasGlo.na+=rGas.na; gasGlo.al+=rGas.al; gasGlo.ne+=rGas.ne;
+            });
+
+            document.getElementById('dash-postes-diag').innerText = gDiag;
+            document.getElementById('dash-postes-pint').innerText = gAvan;
+            document.getElementById('dash-rutas-total').innerText = db.rutas.length;
+            document.getElementById('dash-progreso-barra').style.width = gDiag === 0 ? '0%' : `${(gAvan/gDiag)*100}%`;
+            
+            // Renderizar desgloses
+            document.getElementById('dash-diag-bt').innerText = gDiagBT;
+            document.getElementById('dash-diag-al').innerText = gDiagAl;
+            document.getElementById('dash-pint-bt').innerText = gAvanBT;
+            document.getElementById('dash-pint-al').innerText = gAvanAl;
+            
+            document.getElementById('dash-rutas-pend').innerText = est.pend;
+            document.getElementById('dash-rutas-avan').innerText = est.avan;
+            document.getElementById('dash-rutas-comp').innerText = est.comp;
+
+            // Actualizar Barras de Pintura
+            ['azul','naranja','alum','negro'].forEach(c => {
+                const mappedC = c === 'azul' ? 'az' : (c === 'naranja' ? 'na' : (c === 'alum' ? 'al' : 'ne'));
+                const rQ = reqGlo[mappedC] || 0; 
+                const gQ = gasGlo[mappedC] || 0;
+                
+                const txtReq = document.getElementById(`txt-req-${c}`);
+                const txtGas = document.getElementById(`txt-gas-${c}`);
+                const barGas = document.getElementById(`bar-gas-${c}`);
+                
+                if (txtReq) txtReq.innerText = rQ.toFixed(0);
+                if (txtGas) txtGas.innerText = gQ.toFixed(0);
+                
+                const barP = rQ === 0 ? 0 : Math.min((gQ/rQ)*100, 100);
+                if (barGas) barGas.style.width = `${barP}%`;
+            });
+        }
+
+        // === EXPORTAR REPORTE GERENCIAL (PDF) ===
+        function generarPDFMaster() {
+            if (db.rutas.length === 0) return mostrarAlerta("No hay data", true);
+            const { jsPDF } = window.jspdf; const doc = new jsPDF();
+            
+            // Cálculos Globales con Desglose
+            let gDiag = 0, gAvan = 0, rPend = 0, rAvan = 0, rComp = 0;
+            let gDiagBT = 0, gDiagAl = 0, gAvanBT = 0, gAvanAl = 0;
+            let reqGlo = { az:0, na:0, al:0, ne:0 }; let gasGlo = { az:0, na:0, al:0, ne:0 };
+
+            db.rutas.forEach(r => {
+                gDiag += Object.values(r.diag).reduce((a,b)=>a+b, 0); gAvan += Object.values(r.avan).reduce((a,b)=>a+b, 0);
+                
+                // Desgloses por tipo
+                gDiagBT += r.diag.bt_mix || 0;
+                gDiagAl += (r.diag.al8_comp||0) + (r.diag.al8_mix||0) + (r.diag.al12_comp||0) + (r.diag.al12_mix||0);
+                gAvanBT += r.avan.bt_mix || 0;
+                gAvanAl += (r.avan.al8_comp||0) + (r.avan.al8_mix||0) + (r.avan.al12_comp||0) + (r.avan.al12_mix||0);
+
+                if(r.estado === 'Pendiente') rPend++; else if(r.estado === 'En Avance') rAvan++; else rComp++;
+                const rReq = calcularPintura(r.diag); const rGas = calcularPintura(r.avan);
+                reqGlo.az+=rReq.az; reqGlo.na+=rReq.na; reqGlo.al+=rReq.al; reqGlo.ne+=rReq.ne;
+                gasGlo.az+=rGas.az; gasGlo.na+=rGas.na; gasGlo.al+=rGas.al; gasGlo.ne+=rGas.ne;
+            });
+
+            // Cabecera (Azul Oscuro Corporate)
+            doc.setFillColor(15, 23, 42); // slate-900
+            doc.rect(0, 0, 210, 25, 'F');
+            doc.setTextColor(255, 255, 255); doc.setFontSize(14); doc.setFont("helvetica", "bold");
+            doc.text("SISTEMA INTEGRAL - BALANCE GERENCIAL DE OBRAS", 105, 12, { align: "center" });
+            doc.setFontSize(9); doc.setFont("helvetica", "normal");
+            doc.text(`Corte Operativo al: ${new Date().toLocaleDateString('es-VE')}`, 105, 18, { align: "center" });
+
+            // Tarjeta 1: Diagnosticados con Desglose
+            doc.setFillColor(37, 99, 235); doc.roundedRect(15, 30, 85, 26, 2, 2, 'F');
+            doc.setTextColor(255, 255, 255); doc.setFontSize(9); doc.setFont("helvetica", "bold"); 
+            doc.text("POSTES DIAGNOSTICADOS", 57.5, 36, { align: "center" });
+            doc.setFontSize(20); doc.text(gDiag.toString(), 57.5, 46, { align: "center" });
+            doc.setFontSize(8); doc.setFont("helvetica", "normal");
+            doc.text(`B.Tensión: ${gDiagBT}   |   Alumbrado: ${gDiagAl}`, 57.5, 52, { align: "center" });
+
+            // Tarjeta 2: Ejecutados con Desglose
+            doc.setFillColor(34, 197, 94); doc.roundedRect(110, 30, 85, 26, 2, 2, 'F');
+            doc.setTextColor(255, 255, 255); doc.setFontSize(9); doc.setFont("helvetica", "bold"); 
+            doc.text("POSTES PINTADOS (EJECUTADO)", 152.5, 36, { align: "center" });
+            doc.setFontSize(20); doc.text(gAvan.toString(), 152.5, 46, { align: "center" });
+            doc.setFontSize(8); doc.setFont("helvetica", "normal");
+            doc.text(`B.Tensión: ${gAvanBT}   |   Alumbrado: ${gAvanAl}`, 152.5, 52, { align: "center" });
+
+            // Estatus de Trayectos
+            doc.setTextColor(15, 23, 42); doc.setFontSize(10); doc.setFont("helvetica", "bold"); doc.text("Estatus de Trayectos:", 15, 65);
+            doc.setFontSize(9); doc.setFont("helvetica", "normal");
+            doc.text(`• Completados: ${rComp}`, 20, 71); doc.text(`• En Avance: ${rAvan}`, 65, 71); doc.text(`• Pendientes: ${rPend}`, 110, 71);
+
+            // Consumo de Materiales (Cantidades Exactas)
+            doc.setFontSize(10); doc.setFont("helvetica", "bold"); doc.text("Balance de Materiales (Galones): Gastado / Proyectado", 15, 82);
+            doc.setFontSize(9); doc.setFont("helvetica", "normal");
+            doc.text(`Azul: ${gasGlo.az.toFixed(0)} / ${reqGlo.az.toFixed(0)}`, 20, 89);
+            doc.text(`Naranja: ${gasGlo.na.toFixed(0)} / ${reqGlo.na.toFixed(0)}`, 65, 89);
+            doc.text(`Aluminio: ${gasGlo.al.toFixed(0)} / ${reqGlo.al.toFixed(0)}`, 110, 89);
+            doc.text(`Negro: ${gasGlo.ne.toFixed(0)} / ${reqGlo.ne.toFixed(0)}`, 155, 89);
+
+            // Tabla de Rutas
+            const tableData = db.rutas.map(r => {
+                const tD = Object.values(r.diag).reduce((a,b)=>a+b, 0); const tA = Object.values(r.avan).reduce((a,b)=>a+b, 0);
+                const req = calcularPintura(r.diag); const gas = calcularPintura(r.avan);
+                return [ r.nombre, r.estado, `${tA} / ${tD}`, (req.az+req.na+req.al+req.ne).toFixed(0), (gas.az+gas.na+gas.al+gas.ne).toFixed(0) ];
+            });
+            
+            doc.autoTable({ 
+                startY: 96, 
+                head: [['Trayecto', 'Estatus', 'Avance (Postes)', 'Gasto Previsto (Gal)', 'Gasto Real (Gal)']], 
+                body: tableData, theme: 'striped', headStyles: { fillColor: [37, 99, 235] }, styles: { fontSize: 8 } 
+            });
+            
+            doc.save(`ERP_Postes_Gerencia_${new Date().toLocaleDateString('es-VE').replace(/\//g,'-')}.pdf`);
+            mostrarAlerta("Reporte Descargado");
+        }
+
+        // === EXPORTAR REPORTE INVENTARIO (PDF) ===
+        function generarPDFInventario() {
+            const { jsPDF } = window.jspdf; const doc = new jsPDF();
+            
+            // Cabecera (Azul Oscuro Corporate)
+            doc.setFillColor(15, 23, 42); // slate-900
+            doc.rect(0, 0, 210, 25, 'F');
+            doc.setTextColor(255, 255, 255); doc.setFontSize(14); doc.setFont("helvetica", "bold");
+            doc.text("SISTEMA INTEGRAL - AUDITORÍA DE ALMACÉN", 105, 12, { align: "center" });
+            doc.setFontSize(9); doc.setFont("helvetica", "normal");
+            doc.text(`Corte de Inventario al: ${new Date().toLocaleDateString('es-VE')}`, 105, 18, { align: "center" });
+
+            // Stock Actual (Resumen Gráfico)
+            doc.setTextColor(15, 23, 42); doc.setFontSize(11); doc.setFont("helvetica", "bold");
+            doc.text("STOCK ACTUAL DISPONIBLE (Galones)", 15, 35);
+
+            // Cajas de Colores
+            doc.setFillColor(30, 58, 138); doc.roundedRect(15, 40, 40, 16, 2, 2, 'F'); // Azul
+            doc.setTextColor(255, 255, 255); doc.setFontSize(9); doc.text("AZUL", 35, 46, { align: "center" });
+            doc.setFontSize(14); doc.text(db.inventario.azul.toFixed(0), 35, 53, { align: "center" });
+
+            doc.setFillColor(234, 88, 12); doc.roundedRect(60, 40, 40, 16, 2, 2, 'F'); // Naranja
+            doc.setFontSize(9); doc.text("NARANJA", 80, 46, { align: "center" });
+            doc.setFontSize(14); doc.text(db.inventario.naranja.toFixed(0), 80, 53, { align: "center" });
+
+            doc.setFillColor(148, 163, 184); doc.roundedRect(105, 40, 40, 16, 2, 2, 'F'); // Aluminio
+            doc.setTextColor(15, 23, 42); doc.setFontSize(9); doc.text("ALUMINIO", 125, 46, { align: "center" });
+            doc.setFontSize(14); doc.text(db.inventario.aluminio.toFixed(0), 125, 53, { align: "center" });
+
+            doc.setFillColor(17, 24, 39); doc.roundedRect(150, 40, 40, 16, 2, 2, 'F'); // Negro
+            doc.setTextColor(255, 255, 255); doc.setFontSize(9); doc.text("NEGRO", 170, 46, { align: "center" });
+            doc.setFontSize(14); doc.text(db.inventario.negro.toFixed(0), 170, 53, { align: "center" });
+
+            // Historial de Movimientos
+            doc.setTextColor(15, 23, 42); doc.setFontSize(11); doc.setFont("helvetica", "bold");
+            doc.text("HISTORIAL DE MOVIMIENTOS (Últimos 100)", 15, 68);
+
+            const tableData = db.movimientos.slice(0, 100).map(m => {
+                let tipoStr = m.tipo === 'ingreso' ? 'INGRESO' : (m.tipo === 'retiro_manual' ? 'RETIRO EXT.' : 'DESPACHO OBRA');
+                let gals = `Az:${m.gal.az.toFixed(0)} | Nj:${m.gal.na.toFixed(0)} | Al:${m.gal.al.toFixed(0)} | Ng:${m.gal.ne.toFixed(0)}`;
+                return [ m.fecha, tipoStr, m.desc, gals ];
+            });
+            
+            if (tableData.length === 0) tableData.push(["-", "-", "No hay movimientos registrados", "-"]);
+
+            doc.autoTable({ 
+                startY: 72, 
+                head: [['Fecha', 'Tipo', 'Descripción / Destino', 'Galones (Az/Nj/Al/Ng)']], 
+                body: tableData, 
+                theme: 'striped', 
+                headStyles: { fillColor: [16, 185, 129] }, // Verde Esmeralda
+                styles: { fontSize: 8 },
+                columnStyles: { 3: { fontStyle: 'bold' } }
+            });
+            
+            doc.save(`Auditoria_Inventario_${new Date().toLocaleDateString('es-VE').replace(/\//g,'-')}.pdf`);
+            mostrarAlerta("Auditoría PDF Descargada");
+        }
+
+        // INICIO
+        window.onload = cargarDB;
+    </script>
+</body>
+</html>
