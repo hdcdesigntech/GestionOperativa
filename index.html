@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#0f172a">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Embellesimiento Vertical</title>
+    <title>Embellecimiento Vertical</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -79,7 +79,7 @@
         <div id="vista-dashboard" class="space-y-4 fade-in block">
             
             <button onclick="generarPDFMaster()" class="w-full active:scale-95 bg-slate-800 hover:bg-slate-900 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition-transform flex items-center justify-center mb-2">
-                <i class="fa-solid fa-file-pdf mr-2 text-red-400 text-lg"></i> Exportar Reporte Gerencial PDF
+                <i class="fa-solid fa-file-pdf mr-2 text-red-400 text-lg"></i> Exportar Reporte PDF
             </button>
 
             <!-- KPIs Globales -->
@@ -435,8 +435,8 @@
 
     <script>
         // === CONFIGURACIÓN Y ESTADO GLOBAL ===
-        const supabaseUrl = 'TU_URL_DE_SUPABASE'; // <-- REEMPLAZA AQUÍ
-        const supabaseKey = 'TU_KEY_DE_SUPABASE'; // <-- REEMPLAZA AQUÍ
+        const supabaseUrl = 'https://udkoyqjqrurzfgcagbcq.supabase.co'; // <-- REEMPLAZA AQUÍ
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVka295cWpxcnVyemZnY2FnYmNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2MjY1NjUsImV4cCI6MjA5NTIwMjU2NX0.WMTXQLZHQnwyrzZiBoK_sikYOH0EPBWtBzSiXewF2Po'; // <-- REEMPLAZA AQUÍ
         
         let supabaseClient = null;
         try {
